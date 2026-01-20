@@ -214,37 +214,6 @@ def create_interface():
     
     with gr.Blocks(
         title="城市地图海报生成器",
-        theme=gr.themes.Soft(
-            primary_hue="blue",
-            secondary_hue="slate",
-        ),
-        css="""
-        .header-title {
-            text-align: center;
-            font-size: 2em;
-            font-weight: bold;
-            margin-bottom: 0.5em;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        .header-subtitle {
-            text-align: center;
-            color: #666;
-            margin-bottom: 1.5em;
-        }
-        .section-title {
-            font-weight: 600;
-            font-size: 1.1em;
-            margin-bottom: 0.5em;
-            color: #333;
-        }
-        .output-image {
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        """
     ) as demo:
         
         # Header
@@ -363,8 +332,7 @@ def create_interface():
                     type="filepath",
                     elem_classes=["output-image"],
                     height=600,
-                    interactive=False,
-                    show_download_button=True
+                    interactive=False
                 )
                 
                 output_status = gr.Textbox(
@@ -446,5 +414,36 @@ if __name__ == "__main__":
         server_name="0.0.0.0",
         server_port=7860,
         share=False,
-        show_error=True
+        show_error=True,
+        theme=gr.themes.Soft(
+            primary_hue="blue",
+            secondary_hue="slate",
+        ),
+        css="""
+        .header-title {
+            text-align: center;
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 0.5em;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .header-subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 1.5em;
+        }
+        .section-title {
+            font-weight: 600;
+            font-size: 1.1em;
+            margin-bottom: 0.5em;
+            color: #333;
+        }
+        .output-image {
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        """
     )
