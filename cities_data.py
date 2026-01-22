@@ -31,7 +31,7 @@ CITIES = {
         "贵州": ["贵阳", "遵义", "安顺", "六盘水", "毕节"],
         "甘肃": ["兰州", "天水", "嘉峪关", "酒泉", "张掖"],
         "海南": ["海口", "三亚", "儋州", "琼海"],
-        "广西": ["南宁", "桂林", "柳州", "北海", "玉林"],
+        "广西": ["南宁", "桂林", "柳州", "梧州", "北海", "玉林"],
         "内蒙古": ["呼和浩特", "包头", "鄂尔多斯", "赤峰", "呼伦贝尔"],
         "新疆": ["乌鲁木齐", "喀什", "吐鲁番", "阿克苏", "伊宁"],
         "西藏": ["拉萨", "日喀则", "林芝", "昌都"],
@@ -429,29 +429,492 @@ CITIES = {
     },
 }
 
+# Translation layer for dual-language support
+CN_TO_EN = {
+    # Countries (CN -> EN)
+    "中国": "China",
+    "美国": "United States",
+    "日本": "Japan",
+    "英国": "United Kingdom",
+    "法国": "France",
+    "德国": "Germany",
+    "意大利": "Italy",
+    "西班牙": "Spain",
+    "澳大利亚": "Australia",
+    "加拿大": "Canada",
+    "韩国": "South Korea",
+    "新加坡": "Singapore",
+    "印度": "India",
+    "俄罗斯": "Russia",
+    "巴西": "Brazil",
+    "墨西哥": "Mexico",
+    "荷兰": "Netherlands",
+    "比利时": "Belgium",
+    "瑞士": "Switzerland",
+    "奥地利": "Austria",
+    "葡萄牙": "Portugal",
+    "希腊": "Greece",
+    "土耳其": "Turkey",
+    "阿联酋": "United Arab Emirates",
+    "泰国": "Thailand",
+    "越南": "Vietnam",
+    "印度尼西亚": "Indonesia",
+    "马来西亚": "Malaysia",
+    "菲律宾": "Philippines",
+    "埃及": "Egypt",
+    "南非": "South Africa",
+    "摩洛哥": "Morocco",
+    "阿根廷": "Argentina",
+    "智利": "Chile",
+    "哥伦比亚": "Colombia",
+    "秘鲁": "Peru",
+    "新西兰": "New Zealand",
+    "爱尔兰": "Ireland",
+    "瑞典": "Sweden",
+    "挪威": "Norway",
+    "丹麦": "Denmark",
+    "芬兰": "Finland",
+    "波兰": "Poland",
+    "捷克": "Czech Republic",
+    "匈牙利": "Hungary",
+    "以色列": "Israel",
+    "沙特阿拉伯": "Saudi Arabia",
+    "卡塔尔": "Qatar",
+    "肯尼亚": "Kenya",
+    "尼日利亚": "Nigeria",
+    "巴基斯坦": "Pakistan",
+    "孟加拉国": "Bangladesh",
+    "斯里兰卡": "Sri Lanka",
+    "尼泊尔": "Nepal",
+    
+    # Chinese Provinces (CN -> EN)
+    "北京": "Beijing",
+    "上海": "Shanghai",
+    "天津": "Tianjin",
+    "重庆": "Chongqing",
+    "广东": "Guangdong",
+    "浙江": "Zhejiang",
+    "江苏": "Jiangsu",
+    "山东": "Shandong",
+    "四川": "Sichuan",
+    "湖北": "Hubei",
+    "湖南": "Hunan",
+    "河南": "Henan",
+    "河北": "Hebei",
+    "福建": "Fujian",
+    "安徽": "Anhui",
+    "江西": "Jiangxi",
+    "陕西": "Shaanxi",
+    "山西": "Shanxi",
+    "辽宁": "Liaoning",
+    "吉林": "Jilin",
+    "黑龙江": "Heilongjiang",
+    "云南": "Yunnan",
+    "贵州": "Guizhou",
+    "甘肃": "Gansu",
+    "海南": "Hainan",
+    "广西": "Guangxi",
+    "内蒙古": "Inner Mongolia",
+    "新疆": "Xinjiang",
+    "西藏": "Tibet",
+    "宁夏": "Ningxia",
+    "青海": "Qinghai",
+    "香港": "Hong Kong",
+    "澳门": "Macau",
+    "台湾": "Taiwan",
 
-def get_countries():
-    """Return sorted list of all countries."""
-    return sorted(CITIES.keys())
+    # Chinese Cities (CN -> EN)
+    "广州": "Guangzhou",
+    "深圳": "Shenzhen",
+    "东莞": "Dongguan",
+    "佛山": "Foshan",
+    "珠海": "Zhuhai",
+    "惠州": "Huizhou",
+    "中山": "Zhongshan",
+    "汕头": "Shantou",
+    "湛江": "Zhanjiang",
+    "江门": "Jiangmen",
+    "梧州": "Wuzhou",
+    "杭州": "Hangzhou",
+    "宁波": "Ningbo",
+    "温州": "Wenzhou",
+    "绍兴": "Shaoxing",
+    "嘉兴": "Jiaxing",
+    "金华": "Jinhua",
+    "台州": "Taizhou",
+    "湖州": "Huzhou",
+    "南京": "Nanjing",
+    "苏州": "Suzhou",
+    "无锡": "Wuxi",
+    "常州": "Changzhou",
+    "南通": "Nantong",
+    "徐州": "Xuzhou",
+    "扬州": "Yangzhou",
+    "镇江": "Zhenjiang",
+    "济南": "Jinan",
+    "青岛": "Qingdao",
+    "烟台": "Yantai",
+    "威海": "Weihai",
+    "潍坊": "Weifang",
+    "临沂": "Linyi",
+    "济宁": "Jining",
+    "淄博": "Zibo",
+    "成都": "Chengdu",
+    "绵阳": "Mianyang",
+    "德阳": "Deyang",
+    "宜宾": "Yibin",
+    "泸州": "Luzhou",
+    "南充": "Nanchong",
+    "乐山": "Leshan",
+    "武汉": "Wuhan",
+    "宜昌": "Yichang",
+    "襄阳": "Xiangyang",
+    "荆州": "Jingzhou",
+    "黄石": "Huangshi",
+    "十堰": "Shiyan",
+    "长沙": "Changsha",
+    "株洲": "Zhuzhou",
+    "湘潭": "Xiangtan",
+    "衡阳": "Hengyang",
+    "岳阳": "Yueyang",
+    "常德": "Changde",
+    "郑州": "Zhengzhou",
+    "洛阳": "Luoyang",
+    "开封": "Kaifeng",
+    "新乡": "Xinxiang",
+    "安阳": "Anyang",
+    "焦作": "Jiaozuo",
+    "石家庄": "Shijiazhuang",
+    "唐山": "Tangshan",
+    "秦皇岛": "Qinhuangdao",
+    "邯郸": "Handan",
+    "保定": "Baoding",
+    "沧州": "Cangzhou",
+    "福州": "Fuzhou",
+    "厦门": "Xiamen",
+    "泉州": "Quanzhou",
+    "漳州": "Zhangzhou",
+    "莆田": "Putian",
+    "龙岩": "Longyan",
+    "合肥": "Hefei",
+    "芜湖": "Wuhu",
+    "蚌埠": "Bengbu",
+    "马鞍山": "Ma'anshan",
+    "安庆": "Anqing",
+    "黄山": "Huangshan",
+    "南昌": "Nanchang",
+    "九江": "Jiujiang",
+    "景德镇": "Jingdezhen",
+    "赣州": "Ganzhou",
+    "上饶": "Shangrao",
+    "吉安": "Ji'an",
+    "西安": "Xi'an",
+    "咸阳": "Xianyang",
+    "宝鸡": "Baoji",
+    "延安": "Yan'an",
+    "榆林": "Yulin",
+    "汉中": "Hanzhong",
+    "太原": "Taiyuan",
+    "大同": "Datong",
+    "临汾": "Linfen",
+    "运城": "Yuncheng",
+    "晋中": "Jinzhong",
+    "长治": "Changzhi",
+    "沈阳": "Shenyang",
+    "大连": "Dalian",
+    "鞍山": "Anshan",
+    "抚顺": "Fushun",
+    "本溪": "Benxi",
+    "营口": "Yingkou",
+    "长春": "Changchun",
+    "吉林": "Jilin",
+    "四平": "Siping",
+    "通化": "Tonghua",
+    "延边": "Yanbian",
+    "哈尔滨": "Harbin",
+    "齐齐哈尔": "Qiqihar",
+    "牡丹江": "Mudanjiang",
+    "佳木斯": "Jiamusi",
+    "大庆": "Daqing",
+    "昆明": "Kunming",
+    "大理": "Dali",
+    "丽江": "Lijiang",
+    "西双版纳": "Xishuangbanna",
+    "曲靖": "Qujing",
+    "贵阳": "Guiyang",
+    "遵义": "Zunyi",
+    "安顺": "Anshun",
+    "六盘水": "Liupanshui",
+    "毕节": "Bijie",
+    "兰州": "Lanzhou",
+    "天水": "Tianshui",
+    "嘉峪关": "Jiayuguan",
+    "酒泉": "Jiuquan",
+    "张掖": "Zhangye",
+    "海口": "Haikou",
+    "三亚": "Sanya",
+    "儋州": "Danzhou",
+    "琼海": "Qionghai",
+    "南宁": "Nanning",
+    "桂林": "Guilin",
+    "柳州": "Liuzhou",
+    "北海": "Beihai",
+    "玉林": "Yulin",
+    "呼和浩特": "Hohhot",
+    "包头": "Baotou",
+    "鄂尔多斯": "Ordos",
+    "赤峰": "Chifeng",
+    "呼伦贝尔": "Hulunbuir",
+    "乌鲁木齐": "Urumqi",
+    "喀什": "Kashgar",
+    "吐鲁番": "Turpan",
+    "阿克苏": "Aksu",
+    "伊宁": "Yining",
+    "拉萨": "Lhasa",
+    "日喀则": "Shigatse",
+    "林芝": "Nyingchi",
+    "昌都": "Qamdo",
+    "银川": "Yinchuan",
+    "石嘴山": "Shizuishan",
+    "吴忠": "Wuzhong",
+    "固原": "Guyuan",
+    "西宁": "Xining",
+    "格尔木": "Golmud",
+    "玉树": "Yushu",
+    "海东": "Haidong",
+    "台北": "Taipei",
+    "高雄": "Kaohsiung",
+    "台中": "Taichung",
+    "台南": "Tainan",
+    "新竹": "Hsinchu",
+    "基隆": "Keelung",
+    
+    
+    # Theme Names - MOVED TO EN_TO_CN
 
+}
 
-def get_provinces(country):
-    """Return sorted list of provinces/states for a given country."""
-    if country in CITIES:
-        return sorted(CITIES[country].keys())
+# English name to Chinese (for when UI/Poster is in Chinese)
+EN_TO_CN = {
+    "China": "中国",
+    "USA": "美国",
+    "United States": "美国",
+    "Japan": "日本",
+    "UK": "英国",
+    "United Kingdom": "英国",
+    "France": "法国",
+    "Germany": "德国",
+    "Italy": "意大利",
+    "Spain": "西班牙",
+    "Australia": "澳大利亚",
+    "Canada": "加拿大",
+    "South Korea": "韩国",
+    "Singapore": "新加坡",
+    "India": "印度",
+    "Russia": "俄罗斯",
+    "Brazil": "巴西",
+    "Mexico": "墨西哥",
+    "Netherlands": "荷兰",
+    "Belgium": "比利时",
+    "Switzerland": "瑞士",
+    "Austria": "奥地利",
+    "Portugal": "葡萄牙",
+    "Greece": "希腊",
+    "Turkey": "土耳其",
+    "UAE": "阿联酋",
+    "United Arab Emirates": "阿联酋",
+    "Thailand": "泰国",
+    "Vietnam": "越南",
+    "Indonesia": "印度尼西亚",
+    "Malaysia": "马来西亚",
+    "Philippines": "菲律宾",
+    "Egypt": "埃及",
+    "South Africa": "南非",
+    "Morocco": "摩洛哥",
+    "Argentina": "阿根廷",
+    "Chile": "智利",
+    "Colombia": "哥伦比亚",
+    "Peru": "秘鲁",
+    "New Zealand": "新西兰",
+    "Ireland": "爱尔兰",
+    "Sweden": "瑞典",
+    "Norway": "挪威",
+    "Denmark": "丹麦",
+    "Finland": "芬兰",
+    "Poland": "波兰",
+    "Czech Republic": "捷克",
+    "Hungary": "匈牙利",
+    "Israel": "以色列",
+    "Saudi Arabia": "沙特阿拉伯",
+    "Qatar": "卡塔尔",
+    "Kenya": "肯尼亚",
+    "Nigeria": "尼日利亚",
+    "Pakistan": "巴基斯坦",
+    "Bangladesh": "孟加拉国",
+    "Sri Lanka": "斯里兰卡",
+    "Nepal": "尼泊尔",
+    
+    # Common Cities
+    "New York City": "纽约",
+    "London": "伦敦",
+    "Paris": "巴黎",
+    "Tokyo": "东京",
+    "Guangzhou": "广州",
+    "Shenzhen": "深圳",
+    "Beijing": "北京",
+    "Shanghai": "上海",
+
+    # Theme Names
+    "Feature-Based Shading": "特征着色",
+    "Japanese Ink": "日式水墨",
+    "Midnight Blue": "午夜蓝",
+    "Terracotta": "陶土色",
+    "Autumn": "秋日",
+    "Blueprint": "蓝图",
+    "Contrast Zones": "高对比度",
+    "Copper Patina": "铜绿",
+    "Forest": "森林",
+    "Gradient Roads": "渐变道路",
+    "Monochrome Blue": "单色蓝",
+    "Neon Cyberpunk": "霓虹赛博",
+    "Noir": "诺尔黑白",
+    "Ocean": "海洋",
+    "Pastel Dream": "蜡笔梦幻",
+    "Sunset": "日落",
+    "Warm Beige": "温暖米色",
+}
+
+# Add inverse mappings to ensure completeness
+for k, v in CN_TO_EN.items():
+    if v not in EN_TO_CN:
+        EN_TO_CN[v] = k
+
+# Expose helpers
+__all__ = [
+    'CITIES', 'get_countries', 'get_provinces', 'get_cities', 
+    'get_city_full_name', 'translate', 'get_country_key',
+    'get_manual_coordinates'
+]
+
+# Manual overrides for city centers to ensure logical centering (e.g. Tiananmen for Beijing)
+CITY_CENTERS = {
+    "北京": (39.9042, 116.4074),
+    "Beijing": (39.9042, 116.4074),
+    "上海": (31.2304, 121.4737),
+    "Shanghai": (31.2304, 121.4737),
+    "广州": (23.1291, 113.2644),
+    "Guangzhou": (23.1291, 113.2644),
+    "深圳": (22.5422, 114.0579),
+    "Shenzhen": (22.5422, 114.0579),
+    "杭州": (30.2741, 120.1551),
+    "Hangzhou": (30.2741, 120.1551),
+    "成都": (30.6570, 104.0660),
+    "Chengdu": (30.6570, 104.0660),
+    "南京": (32.0603, 118.7969),
+    "Nanjing": (32.0603, 118.7969),
+    "武汉": (30.5928, 114.3055),
+    "Wuhan": (30.5928, 114.3055),
+    "西安": (34.3416, 108.9398),
+    "Xi'an": (34.3416, 108.9398),
+    "苏州": (31.2990, 120.5853),
+    "Suzhou": (31.2990, 120.5853),
+    "重庆": (29.5630, 106.5516),
+    "Chongqing": (29.5630, 106.5516),
+    "天津": (39.1255, 117.1901),
+    "Tianjin": (39.1255, 117.1901),
+    "香港": (22.3193, 114.1694),
+    "Hong Kong": (22.3193, 114.1694),
+    "台北": (25.0330, 121.5654),
+    "Taipei": (25.0330, 121.5654),
+    "New York City": (40.7128, -74.0060),
+    "纽约": (40.7128, -74.0060),
+    "London": (51.5074, -0.1278),
+    "伦敦": (51.5074, -0.1278),
+    "Paris": (48.8566, 2.3522),
+    "巴黎": (48.8566, 2.3522),
+    "Tokyo": (35.6895, 139.6917),
+    "东京": (35.6895, 139.6917),
+}
+
+def get_manual_coordinates(city_name):
+    """Return manual coordinates if available, else None."""
+    if not city_name:
+        return None
+    return CITY_CENTERS.get(city_name)
+
+def translate(text, target_lang='en'):
+    """
+    Simple translation helper.
+    target_lang: 'en' or 'cn'
+    """
+    if not text:
+        return text
+        
+    if target_lang == 'en':
+        # If text is already in CN_TO_EN keys (Chinese), return the English value
+        return CN_TO_EN.get(text, text)
+    
+    if target_lang == 'cn':
+        # If text is in EN_TO_CN keys (English), return the Chinese value
+        return EN_TO_CN.get(text, text)
+    
+    return text
+
+def get_countries(lang='en'):
+    """Return list of countries in the target language."""
+    countries = []
+    for country_key in sorted(CITIES.keys()):
+        countries.append(translate(country_key, lang))
+    return sorted(list(set(countries)))
+
+def get_country_key(name):
+    """Map a localized name back to the CITIES dictionary key."""
+    # Check if it's already a key
+    if name in CITIES:
+        return name
+    # Check if it's an English name that needs to be Chinese key
+    cn_name = EN_TO_CN.get(name)
+    if cn_name in CITIES:
+        return cn_name
+    # Check if it's a Chinese name that needs to be English key
+    en_name = CN_TO_EN.get(name)
+    if en_name in CITIES:
+        return en_name
+    return name
+
+def get_provinces(country_name, lang='en'):
+    """Return sorted list of provinces/states for a given country in target language."""
+    country_key = get_country_key(country_name)
+    if country_key in CITIES:
+        # Translate provinces to target lang
+        provinces = [translate(p, lang) for p in CITIES[country_key].keys()]
+        return sorted(provinces)
     return []
 
-
-def get_cities(country, province):
-    """Return sorted list of cities for a given country and province."""
-    if country in CITIES and province in CITIES[country]:
-        return sorted(CITIES[country][province])
+def get_cities(country_name, province_name, lang='en'):
+    """Return sorted list of cities in target language."""
+    country_key = get_country_key(country_name)
+    # To find the province key, we might need to map it back if it was translated
+    # For now, let's assume provincial keys in CITIES are what we search against
+    # If the province_name is translated, we need to find the original key
+    province_key = province_name
+    if country_key in CITIES:
+        # Check if province_name is a direct key
+        if province_name not in CITIES[country_key]:
+            # Try to find the key that translates to province_name
+            for p_key in CITIES[country_key].keys():
+                if translate(p_key, lang) == province_name:
+                    province_key = p_key
+                    break
+        
+        if province_key in CITIES[country_key]:
+            cities = [translate(c, lang) for c in CITIES[country_key][province_key]]
+            return sorted(cities)
     return []
-
 
 def search_cities(query):
     """
-    Search for cities matching the query.
+    Search for cities matching the query (checks both Native and English names).
     Returns list of tuples: (city, province, country)
     """
     if not query or len(query) < 2:
@@ -461,17 +924,27 @@ def search_cities(query):
     results = []
     
     for country, provinces in CITIES.items():
+        country_en = CN_TO_EN.get(country, "").lower()
         for province, cities in provinces.items():
             for city in cities:
-                if query in city.lower():
+                city_en = CN_TO_EN.get(city, "").lower()
+                # Match against native name or English name
+                if query in city.lower() or (city_en and query in city_en):
                     results.append((city, province, country))
     
     # Sort by city name
-    return sorted(results, key=lambda x: x[0])[:20]  # Limit to 20 results
+    return sorted(results, key=lambda x: x[0])[:20]
 
+def get_city_full_name(city, province, country, target_lang=None):
+    """
+    Return formatted full name.
+    If target_lang is provided ('en' or 'cn'), translates components.
+    """
+    if target_lang:
+        city = translate(city, target_lang)
+        province = translate(province, target_lang)
+        country = translate(country, target_lang)
 
-def get_city_full_name(city, province, country):
-    """Return formatted full name for display."""
     if province == city:  # Direct-controlled municipalities
         return f"{city}, {country}"
     return f"{city}, {province}, {country}"

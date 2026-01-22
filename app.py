@@ -15,14 +15,22 @@ from cities_data import (
     get_countries, 
     get_provinces, 
     get_cities, 
-    search_cities,
-    get_city_full_name
+    get_city_full_name,
+    translate,
+    get_country_key
 )
+
 
 # --- Constants ---
 THEMES_DIR = "themes"
 FONTS_DIR = "fonts"
 POSTERS_DIR = "posters"
+
+# Layer Constants
+LAYERS_EN = ["Motorway", "Primary Roads", "Secondary Roads", "Water", "Parks"]
+LAYERS_CN = ["高速公路", "主干道", "次干道", "水域", "公园"]
+LAYER_KEYS = ["motorway", "primary", "secondary", "water", "parks"]
+
 
 
 def get_available_themes():
@@ -38,6 +46,23 @@ def get_available_themes():
     return themes
 
 
+def get_theme_choices(lang='en'):
+    """Return a list of (Display Name, Internal Name) tuples for themes."""
+    internal_names = get_available_themes()
+    choices = []
+    
+    for internal_name in internal_names:
+        theme_info = load_theme_info(internal_name)
+        if theme_info:
+            proper_name = theme_info.get("name", internal_name)
+            display_name = translate(proper_name, lang)
+            choices.append((display_name, internal_name))
+        else:
+            choices.append((internal_name, internal_name))
+            
+    return choices
+
+
 def load_theme_info(theme_name):
     """Load theme details for preview."""
     theme_file = os.path.join(THEMES_DIR, f"{theme_name}.json")
@@ -47,36 +72,52 @@ def load_theme_info(theme_name):
     return None
 
 
-def get_theme_preview_html(theme_name):
+def get_theme_preview_html(theme_name, lang='en'):
     """Generate HTML preview for a theme."""
     theme = load_theme_info(theme_name)
+    lang_code = 'en' if lang == "English" else 'cn'
+    
     if not theme:
-        return "<p>主题加载失败</p>"
+        return f"<p>{'Theme load failed' if lang_code == 'en' else '主题加载失败'}</p>"
+    
+    # Translated labels
+    labels = {
+        "bg": "Background" if lang_code == "en" else "背景",
+        "text": "Text" if lang_code == "en" else "文字",
+        "motorway": "Motorway" if lang_code == "en" else "高速公路",
+        "primary": "Primary Road" if lang_code == "en" else "主干道",
+        "secondary": "Secondary Road" if lang_code == "en" else "次干道",
+        "water": "Water" if lang_code == "en" else "水域",
+        "parks": "Parks" if lang_code == "en" else "公园",
+    }
     
     # Create color swatches
     colors = [
-        ("背景", theme.get("bg", "#FFFFFF")),
-        ("文字", theme.get("text", "#000000")),
-        ("高速公路", theme.get("road_motorway", "#000000")),
-        ("主干道", theme.get("road_primary", "#333333")),
-        ("次干道", theme.get("road_secondary", "#666666")),
-        ("水域", theme.get("water", "#C0C0C0")),
-        ("公园", theme.get("parks", "#F0F0F0")),
+        (labels["bg"], theme.get("bg", "#FFFFFF")),
+        (labels["text"], theme.get("text", "#000000")),
+        (labels["motorway"], theme.get("road_motorway", "#000000")),
+        (labels["primary"], theme.get("road_primary", "#333333")),
+        (labels["secondary"], theme.get("road_secondary", "#666666")),
+        (labels["water"], theme.get("water", "#C0C0C0")),
+        (labels["parks"], theme.get("parks", "#F0F0F0")),
     ]
+    
+    display_name = translate(theme.get('name', theme_name), lang_code)
+    description = theme.get('description', '')
+    # Optional: translate description if we really want to, but might be too much work
     
     html = f"""
     <div style="padding: 12px; background: {theme.get('bg', '#FFFFFF')}; border-radius: 8px; border: 1px solid #ddd;">
         <h4 style="color: {theme.get('text', '#000000')}; margin: 0 0 8px 0; font-size: 14px;">
-            {theme.get('name', theme_name)}
+            {display_name}
         </h4>
         <p style="color: {theme.get('text', '#000000')}; opacity: 0.7; margin: 0 0 12px 0; font-size: 12px;">
-            {theme.get('description', '')}
+            {description}
         </p>
         <div style="display: flex; flex-wrap: wrap; gap: 6px;">
     """
     
     for label, color in colors:
-        text_color = "#fff" if sum(int(color.lstrip('#')[i:i+2], 16) for i in (0, 2, 4)) < 384 else "#000"
         html += f"""
             <div style="display: flex; align-items: center; gap: 4px;">
                 <div style="width: 20px; height: 20px; background: {color}; border-radius: 4px; border: 1px solid #ccc;"></div>
@@ -89,8 +130,7 @@ def get_theme_preview_html(theme_name):
 
 
 def generate_poster(
-    city_input, 
-    country, 
+    country_display, 
     province, 
     city_dropdown,
     theme_name, 
@@ -99,6 +139,8 @@ def generate_poster(
     height, 
     output_format,
     no_crop,
+    poster_lang,
+    layers_selection,
     progress=gr.Progress()
 ):
     """
@@ -107,26 +149,34 @@ def generate_poster(
     # Import here to avoid circular imports and ensure THEME is set correctly
     import create_map_poster as cmp
     
-    # Determine which city to use
-    if city_input and city_input.strip():
-        # User typed in a city - parse it
-        parts = [p.strip() for p in city_input.split(',')]
-        if len(parts) >= 2:
-            selected_city = parts[0]
-            selected_country = parts[-1] if len(parts) >= 2 else country
-        else:
-            selected_city = city_input.strip()
-            selected_country = country if country else "China"
-    else:
-        # Use dropdown selection
-        selected_city = city_dropdown
-        selected_country = country
+    # Decode layer selection
+    show_motorway = any(x in ["Motorway", "高速公路"] for x in layers_selection)
+    show_primary = any(x in ["Primary Roads", "主干道"] for x in layers_selection)
+    show_secondary = any(x in ["Secondary Roads", "次干道"] for x in layers_selection)
+    show_water = any(x in ["Water", "水域"] for x in layers_selection)
+    show_parks = any(x in ["Parks", "公园"] for x in layers_selection)
+    
+    # Parse country
+    selected_country = get_country_key(country_display)
+    
+    # Use dropdown selection
+    selected_city = city_dropdown
+    # If the selected_city is translated, we need the original for geocoding
+    # But get_coordinates typically handles common translations or we can just pass the dropdown value
+    # Actually, selected_city from dropdown might be "Guangzhou" or "广州"
+    # cmp.get_coordinates(selected_city, selected_country)
+    # selected_country is now standardized (e.g. "中国" or "USA")
     
     if not selected_city:
-        return None, "❌ 请选择或输入城市名称"
+        return None, "❌ 请选择城市名称"
     
     if not selected_country:
         return None, "❌ 请选择国家"
+    
+    # Determine display names based on poster_lang
+    lang_code = 'en' if poster_lang == "English" else 'cn'
+    display_city = translate(selected_city, lang_code)
+    display_country = translate(selected_country, lang_code)
     
     progress(0.1, desc="正在加载主题...")
     
@@ -136,81 +186,107 @@ def generate_poster(
     progress(0.2, desc="正在获取坐标...")
     
     try:
-        coords = cmp.get_coordinates(selected_city, selected_country)
+        # We search coordinates using the selection
+        # CMP might need the "original" names if OSM behaves better with them
+        # For China, "广州" is better than "Guangzhou" for geopy sometimes, but geopy is usually good.
+        # Let's ensure we use the 'original' internal key if possible for best OSM matching
+        # However, for cities, we don't have a strict key map like for countries.
+        # We can try to translate to CN if it's a Chinese city.
+        search_city = selected_city
+        search_country = selected_country
+        
+        coords = cmp.get_coordinates(search_city, search_country)
     except Exception as e:
         return None, f"❌ 无法找到城市坐标: {str(e)}"
     
     progress(0.3, desc="正在生成海报...")
     
-    # Generate output filename
-    output_file = cmp.generate_output_filename(selected_city, theme_name, output_format)
+    # Generate output filename (using English/Slugified names)
+    en_city = translate(selected_city, 'en')
+    output_file = cmp.generate_output_filename(en_city, theme_name, output_format)
     
     try:
-        cmp.create_poster(
-            selected_city, 
-            selected_country, 
+        # Wrap the generator to yield status updates and final result
+        for status in cmp.create_poster(
+            display_city, # Pass translated names for display
+            display_country, 
             coords, 
             distance, 
             output_file, 
             output_format,
             width=width, 
             height=height, 
-            no_crop=no_crop
-        )
+            no_crop=no_crop,
+            show_motorway=show_motorway,
+            show_primary=show_primary,
+            show_secondary=show_secondary,
+            show_water=show_water,
+            show_parks=show_parks
+        ):
+            # Translate common status messages if possible
+            status_display = status
+            if lang_code == 'cn':
+                if "Downloading street network" in status: status_display = "正在下载街道数据..."
+                elif "Downloading features" in status: status_display = "正在下载水域和公园数据..."
+                elif "Rendering map" in status: status_display = "正在渲染地图..."
+                elif "Applying road styles" in status: status_display = "正在应用样式..."
+                elif "Saving to" in status: status_display = "正在保存海报..."
+                elif "Done" in status: status_display = "完成！"
+            
+            yield None, f"⏳ {status_display}"
         
         progress(1.0, desc="完成!")
         
-        return output_file, f"✅ 海报生成成功！保存至: {output_file}"
+        yield output_file, f"✅ 海报生成成功！保存至: {output_file}"
+        
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return None, f"❌ 生成失败: {str(e)}"
+        yield None, f"❌ 生成失败: {str(e)}"
 
 
-def update_provinces(country):
-    """Update province dropdown based on country selection."""
-    provinces = get_provinces(country)
+def update_provinces(country, lang='en'):
+    """Update province dropdown based on country selection and language."""
+    # Map back to internal key for data lookup
+    lang_code = 'en' if lang == "English" else 'cn'
+    provinces = get_provinces(country, lang_code)
     if provinces:
         return gr.update(choices=provinces, value=provinces[0], visible=True)
     return gr.update(choices=[], value=None, visible=False)
 
 
-def update_cities(country, province):
-    """Update city dropdown based on province selection."""
-    cities = get_cities(country, province)
+def update_cities(country, province, lang='en'):
+    """Update city dropdown based on province selection and language."""
+    lang_code = 'en' if lang == "English" else 'cn'
+    cities = get_cities(country, province, lang_code)
     if cities:
         return gr.update(choices=cities, value=cities[0])
     return gr.update(choices=[], value=None)
 
 
-def on_city_search(query):
-    """Handle city search and return formatted results."""
-    results = search_cities(query)
-    if results:
-        # Format as "City, Province, Country" for display
-        formatted = [get_city_full_name(c, p, co) for c, p, co in results]
-        return gr.update(choices=formatted, visible=True)
-    return gr.update(choices=[], visible=False)
 
-
-def on_theme_change(theme_name):
+def on_theme_change(theme_name, lang='en'):
     """Update theme preview when theme changes."""
-    return get_theme_preview_html(theme_name)
+    return get_theme_preview_html(theme_name, lang)
 
 
 # --- Build Gradio Interface ---
 def create_interface():
     """Create and return the Gradio interface."""
     
-    # Get initial data
-    countries = get_countries()
-    themes = get_available_themes()
-    default_country = "中国"
-    default_provinces = get_provinces(default_country)
+    # Get initial data (Default English)
+    default_lang_code = "en"
+    default_lang_radio = "English"
+    countries = get_countries(default_lang_code)
+    theme_choices = get_theme_choices(default_lang_code)
+    
+    default_country = "China" if "China" in countries else countries[0]
+    default_provinces = get_provinces(default_country, default_lang_code)
     default_province = default_provinces[0] if default_provinces else None
-    default_cities = get_cities(default_country, default_province) if default_province else []
+    default_cities = get_cities(default_country, default_province, default_lang_code) if default_province else []
     default_city = default_cities[0] if default_cities else None
-    default_theme = themes[0] if themes else "feature_based"
+    default_theme = theme_choices[0][1] if theme_choices else "feature_based"
+    default_layers = LAYERS_EN
     
     with gr.Blocks(
         title="城市地图海报生成器",
@@ -218,7 +294,7 @@ def create_interface():
         
         # Header
         gr.HTML("""
-            <div class="header-title">🗺️ 城市地图海报生成器</div>
+            <div class="header-title">城市地图海报生成器</div>
             <div class="header-subtitle">选择任意城市，自定义主题风格，生成精美地图海报</div>
         """)
         
@@ -229,34 +305,33 @@ def create_interface():
                 # City Selection Section
                 gr.HTML('<div class="section-title">📍 城市选择</div>')
                 
-                with gr.Tab("🔍 搜索"):
-                    city_search = gr.Textbox(
-                        label="搜索城市",
-                        placeholder="输入城市名称，如: Tokyo, Paris, 广州...",
-                        info="输入城市名称进行搜索，支持中英文"
-                    )
+                lang_radio = gr.Radio(
+                    choices=["English", "Chinese"],
+                    value="English",
+                    label="海报语言",
+                    info="选择海报及界面的显示语言"
+                )
                 
-                with gr.Tab("📋 级联选择"):
-                    country_dropdown = gr.Dropdown(
-                        choices=countries,
-                        value=default_country,
-                        label="选择国家",
-                        interactive=True
-                    )
-                    
-                    province_dropdown = gr.Dropdown(
-                        choices=default_provinces,
-                        value=default_province,
-                        label="选择省份/州",
-                        interactive=True
-                    )
-                    
-                    city_dropdown = gr.Dropdown(
-                        choices=default_cities,
-                        value=default_city,
-                        label="选择城市",
-                        interactive=True
-                    )
+                country_dropdown = gr.Dropdown(
+                    choices=countries,
+                    value=default_country,
+                    label="选择国家",
+                    interactive=True
+                )
+                
+                province_dropdown = gr.Dropdown(
+                    choices=default_provinces,
+                    value=default_province,
+                    label="选择省份/州",
+                    interactive=True
+                )
+                
+                city_dropdown = gr.Dropdown(
+                    choices=default_cities,
+                    value=default_city,
+                    label="选择城市",
+                    interactive=True
+                )
                 
                 gr.HTML("<hr style='margin: 20px 0; border-color: #eee;'>")
                 
@@ -264,14 +339,14 @@ def create_interface():
                 gr.HTML('<div class="section-title">🎨 主题风格</div>')
                 
                 theme_dropdown = gr.Dropdown(
-                    choices=themes,
+                    choices=theme_choices,
                     value=default_theme,
                     label="选择主题",
                     interactive=True
                 )
                 
                 theme_preview = gr.HTML(
-                    value=get_theme_preview_html(default_theme),
+                    value=get_theme_preview_html(default_theme, default_lang_radio),
                     label="主题预览"
                 )
                 
@@ -283,10 +358,10 @@ def create_interface():
                 distance_slider = gr.Slider(
                     minimum=4000,
                     maximum=30000,
-                    value=12000,
+                    value=10000,
                     step=1000,
                     label="地图范围 (米)",
-                    info="4000-6000: 小城区 | 8000-12000: 中等城市 | 15000+: 大都市"
+                    info="4000-6000: 小城区 | 8000-12000: 中等城市 | 15000+: 大都市 (范围越大生成越慢)"
                 )
                 
                 with gr.Row():
@@ -314,6 +389,13 @@ def create_interface():
                     value=False,
                     label="保留边距 (不裁剪)",
                     info="勾选后保留海报边缘背景"
+                )
+                
+                layers_checkbox = gr.CheckboxGroup(
+                    choices=LAYERS_EN,
+                    value=LAYERS_EN,
+                    label="图层显示",
+                    info="选择需要显示的地图元素"
                 )
                 
                 # Generate Button
@@ -347,24 +429,75 @@ def create_interface():
         
         # --- Event Handlers ---
         
+        # Language change -> update all dropdowns
+        def on_lang_change(lang, current_theme, current_layers):
+            lang_code = 'en' if lang == "English" else 'cn'
+            new_countries = get_countries(lang_code)
+            
+            # Find closest match for current selections if possible
+            default_co = "China" if lang == "English" else "中国"
+            if default_co not in new_countries:
+                default_co = new_countries[0]
+            
+            new_provinces = get_provinces(default_co, lang_code)
+            default_pr = new_provinces[0] if new_provinces else None
+            
+            new_cities = get_cities(default_co, default_pr, lang_code) if default_pr else []
+            default_ci = new_cities[0] if new_cities else None
+            
+            # Themes
+            new_theme_choices = get_theme_choices(lang_code)
+            new_preview = get_theme_preview_html(current_theme, lang)
+            
+            # Layers
+            # Map current selection to keys then to new language
+            map_en_to_key = dict(zip(LAYERS_EN, LAYER_KEYS))
+            map_cn_to_key = dict(zip(LAYERS_CN, LAYER_KEYS))
+            map_key_to_en = dict(zip(LAYER_KEYS, LAYERS_EN))
+            map_key_to_cn = dict(zip(LAYER_KEYS, LAYERS_CN))
+            
+            current_keys = []
+            for x in current_layers:
+                if x in map_en_to_key: current_keys.append(map_en_to_key[x])
+                elif x in map_cn_to_key: current_keys.append(map_cn_to_key[x])
+            
+            target_map = map_key_to_en if lang == "English" else map_key_to_cn
+            new_layer_choices = LAYERS_EN if lang == "English" else LAYERS_CN
+            new_layer_values = [target_map[k] for k in current_keys if k in target_map]
+            
+            return (
+                gr.update(choices=new_countries, value=default_co),
+                gr.update(choices=new_provinces, value=default_pr),
+                gr.update(choices=new_cities, value=default_ci),
+                gr.update(choices=new_theme_choices),
+                new_preview,
+                gr.update(choices=new_layer_choices, value=new_layer_values, label="Layers" if lang == "English" else "图层显示")
+            )
+
+        lang_radio.change(
+            fn=on_lang_change,
+            inputs=[lang_radio, theme_dropdown, layers_checkbox],
+            outputs=[country_dropdown, province_dropdown, city_dropdown, theme_dropdown, theme_preview, layers_checkbox]
+        )
+        
         # Country change -> update provinces
         country_dropdown.change(
             fn=update_provinces,
-            inputs=[country_dropdown],
+            inputs=[country_dropdown, lang_radio],
             outputs=[province_dropdown]
         )
         
         # Province change -> update cities
         province_dropdown.change(
             fn=update_cities,
-            inputs=[country_dropdown, province_dropdown],
+            inputs=[country_dropdown, province_dropdown, lang_radio],
             outputs=[city_dropdown]
         )
         
         # Theme change -> update preview
         theme_dropdown.change(
             fn=on_theme_change,
-            inputs=[theme_dropdown],
+            inputs=[theme_dropdown, lang_radio],
             outputs=[theme_preview]
         )
         
@@ -378,7 +511,6 @@ def create_interface():
         generate_btn.click(
             fn=generate_poster,
             inputs=[
-                city_search,
                 country_dropdown,
                 province_dropdown,
                 city_dropdown,
@@ -387,7 +519,9 @@ def create_interface():
                 width_input,
                 height_input,
                 format_radio,
-                no_crop_checkbox
+                no_crop_checkbox,
+                lang_radio,
+                layers_checkbox
             ],
             outputs=[output_image, output_status]
         ).then(
@@ -398,9 +532,17 @@ def create_interface():
         
         # Footer
         gr.HTML("""
-            <div style="text-align: center; margin-top: 24px; padding: 12px; color: #888; font-size: 12px;">
-                <p>数据来源: © OpenStreetMap contributors | 地理编码: Nominatim</p>
-                <p>提示: 生成大范围地图可能需要较长时间，请耐心等待</p>
+            <div style="text-align: center; margin-top: 24px; padding: 20px; color: #666; font-size: 13px; border-top: 1px solid #eee;">
+                <p>项目地址: <a href="https://github.com/IsaacHuo/maptoposter" target="_blank" style="color: #764ba2; text-decoration: none; font-weight: bold;">GitHub - IsaacHuo/maptoposter</a></p>
+                <p>✨ 欢迎提 <b>Issue</b> 和 <b>PR</b> | 鸣谢：该项目基于 <a href="https://github.com/originalankur/maptoposter" target="_blank" style="color: #666;">originalankur/maptoposter</a> 开发</p>
+                
+                <div style="max-width: 600px; margin: 15px auto; padding: 10px; background: #f9f9f9; border-radius: 6px; text-align: left; font-size: 12px; line-height: 1.6;">
+                    <b>⚠️ 注意：</b><br>
+                    • <b>特大城市</b>（如北京）：可能会出现中心定位不准的问题。<br>
+                    • <b>小城市</b>：由于 OpenStreetMap 数据缺失，部分图层元素可能无法显示。<br>
+                    • <b>生成速度</b>：由于使用国外服务器资源（OSM/Nominatim）且渲染方式较基础，下载和生成速度可能较慢。<br>
+                    • <b>数据来源</b>：© OpenStreetMap contributors
+                </div>
             </div>
         """)
     
@@ -415,10 +557,7 @@ if __name__ == "__main__":
         server_port=7860,
         share=False,
         show_error=True,
-        theme=gr.themes.Soft(
-            primary_hue="blue",
-            secondary_hue="slate",
-        ),
+        theme=gr.themes.Default(),
         css="""
         .header-title {
             text-align: center;

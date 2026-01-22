@@ -1,4 +1,5 @@
 import osmnx as ox
+import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
 import matplotlib.colors as mcolors
@@ -11,28 +12,32 @@ import os
 from datetime import datetime
 import argparse
 
+# Explicitly enable caching
+ox.settings.use_cache = True
+
 THEMES_DIR = "themes"
 FONTS_DIR = "fonts"
 POSTERS_DIR = "posters"
 
 def load_fonts():
     """
-    Load Goudy Old Style Regular fonts from the fonts directory.
-    Returns dict with font paths for different weights.
+    Load fonts for both English (Goudy Old Style) and Chinese (HYWenRunSongYunU).
     """
     fonts = {
-        'bold': os.path.join(FONTS_DIR, 'GoudyOldStyle-Bold.ttf'),
-        'regular': os.path.join(FONTS_DIR, 'GoudyOldStyle-Regular.ttf'),
-        'light': os.path.join(FONTS_DIR, 'GoudyOldStyle-Regular.ttf')
+        'en_bold': os.path.join(FONTS_DIR, 'GoudyOldStyle-Bold.ttf'),
+        'en_regular': os.path.join(FONTS_DIR, 'GoudyOldStyle-Regular.ttf'),
+        'cn': os.path.join(FONTS_DIR, 'HYWenRunSongYunU.ttf')
     }
     
     # Verify fonts exist
-    for weight, path in fonts.items():
-        if not os.path.exists(path):
+    available_fonts = {}
+    for key, path in fonts.items():
+        if os.path.exists(path):
+            available_fonts[key] = path
+        else:
             print(f"⚠ Font not found: {path}")
-            return None
     
-    return fonts
+    return available_fonts if available_fonts else None
 
 FONTS = load_fonts()
 
@@ -132,10 +137,11 @@ def create_gradient_fade(ax, color, location='bottom', zorder=10):
     ax.imshow(gradient, extent=[xlim[0], xlim[1], y_bottom, y_top], 
               aspect='auto', cmap=custom_cmap, zorder=zorder, origin='lower')
 
-def get_edge_colors_by_type(G):
+def get_edge_colors_by_type(G, show_motorway=True, show_primary=True, show_secondary=True):
     """
     Assigns colors to edges based on road type hierarchy.
     Returns a list of colors corresponding to each edge in the graph.
+    If a layer is hidden, returns 'none' for that edge.
     """
     edge_colors = []
     
@@ -149,14 +155,17 @@ def get_edge_colors_by_type(G):
         
         # Assign color based on road type
         if highway in ['motorway', 'motorway_link']:
-            color = THEME['road_motorway']
+            color = THEME['road_motorway'] if show_motorway else 'none'
         elif highway in ['trunk', 'trunk_link', 'primary', 'primary_link']:
-            color = THEME['road_primary']
+            color = THEME['road_primary'] if show_primary else 'none'
         elif highway in ['secondary', 'secondary_link']:
-            color = THEME['road_secondary']
+            color = THEME['road_secondary'] if show_secondary else 'none'
         elif highway in ['tertiary', 'tertiary_link']:
-            color = THEME['road_tertiary']
-        elif highway in ['residential', 'living_street', 'unclassified']:
+            color = THEME['road_tertiary'] if show_secondary else 'none' # Group tertiary with secondary
+        elif highway in ['residential', 'living_street', 'unclassified', 'service', 'road']:
+            color = THEME['road_residential']
+        elif highway in ['path', 'footway', 'track', 'cycleway', 'pedestrian']:
+            # Use residential color or a lighter version if defined, for now residential
             color = THEME['road_residential']
         else:
             color = THEME['road_default']
@@ -178,28 +187,49 @@ def get_edge_widths_by_type(G):
         if isinstance(highway, list):
             highway = highway[0] if highway else 'unclassified'
         
-        # Assign width based on road importance
+        # Assign width based on road importance (increased for visibility)
         if highway in ['motorway', 'motorway_link']:
-            width = 1.2
+            width = 1.6
         elif highway in ['trunk', 'trunk_link', 'primary', 'primary_link']:
-            width = 1.0
+            width = 1.3
         elif highway in ['secondary', 'secondary_link']:
-            width = 0.8
+            width = 1.0
         elif highway in ['tertiary', 'tertiary_link']:
-            width = 0.6
+            width = 0.8
+        elif highway in ['residential', 'living_street', 'unclassified', 'service', 'road']:
+            width = 0.8
+        elif highway in ['path', 'footway', 'track', 'cycleway', 'pedestrian']:
+            width = 0.5
         else:
-            width = 0.4
+            width = 0.6
         
         edge_widths.append(width)
     
     return edge_widths
 
+def has_chinese(text):
+    """Check if a string contains any Chinese characters."""
+    if not text:
+        return False
+    for char in text:
+        if '\u4e00' <= char <= '\u9fff':
+            return True
+    return False
+
 def get_coordinates(city, country):
     """
-    Fetches coordinates for a given city and country using geopy.
-    Includes rate limiting to be respectful to the geocoding service.
+    Fetches coordinates for a given city and country.
+    First checks for manual overrides in cities_data, then falls back to geopy.
     """
-    print("Looking up coordinates...")
+    from cities_data import get_manual_coordinates
+    
+    # Check for manual override first (e.g. for large cities like Beijing)
+    manual_coords = get_manual_coordinates(city)
+    if manual_coords:
+        print(f"✓ Using manual coordinate override for {city}: {manual_coords}")
+        return manual_coords
+
+    print(f"Looking up coordinates for {city}, {country} via Nominatim...")
     geolocator = Nominatim(user_agent="city_map_poster", timeout=10)
     
     # Add a small delay to respect Nominatim's usage policy
@@ -214,8 +244,11 @@ def get_coordinates(city, country):
     else:
         raise ValueError(f"Could not find coordinates for {city}, {country}")
 
-def create_poster(city, country, point, dist, output_file, output_format, width=12, height=16, no_crop=False):
-    print(f"\nGenerating map for {city}, {country}...")
+def create_poster(city, country, point, dist, output_file, output_format, width=12, height=16, no_crop=False,
+                  show_motorway=True, show_primary=True, show_secondary=True, show_water=True, show_parks=True):
+    msg = f"Generating map for {city}, {country}..."
+    print(f"\n{msg}")
+    yield msg
     
     # Calculate non-square distances to match figure aspect ratio
     # dist is the vertical (North-South) half-distance
@@ -223,43 +256,85 @@ def create_poster(city, country, point, dist, output_file, output_format, width=
     dist_ew = dist * (width / height)
     
     # Progress bar for data fetching
-    with tqdm(total=3, desc="Fetching map data", unit="step", bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt}') as pbar:
-        # 1. Fetch Street Network using a bounding box
-        pbar.set_description("Downloading street network")
+    # Note: tqdm writes to stderr, we will just yield status updates for the UI
+    
+    # 1. Fetch Street Network using a bounding box
+    yield "Downloading street network..."
         
-        # Calculate bbox: north, south, east, west
-        # But we want non-square, so we calculate directly
-        # approx meters to degrees: 111320m = 1deg lat, 111320*cos(lat) = 1deg lon
-        import math
-        lat, lon = point
-        delta_lat = dist_ns / 111320.0
-        delta_lon = dist_ew / (111320.0 * math.cos(math.radians(lat)))
+    import math
+    lat, lon = point
+    delta_lat = dist_ns / 111320.0
+    delta_lon = dist_ew / (111320.0 * math.cos(math.radians(lat)))
+    
+    north, south = lat + delta_lat, lat - delta_lat
+    west, east = lon - delta_lon, lon + delta_lon
         
-        north, south = lat + delta_lat, lat - delta_lat
-        west, east = lon - delta_lon, lon + delta_lon
+    bbox = (west, south, east, north)
+    G = ox.graph_from_bbox(bbox, network_type='all')
+    
+    # 2. Fetch Water and Parks in one request
+    yield "Downloading features (water, parks)..."
+    tags = {
+        'natural': ['water', 'wood', 'scrub'],
+        'waterway': ['riverbank', 'dock'],
+        'leisure': ['park', 'garden', 'nature_reserve'],
+        'landuse': ['forest', 'grass', 'cemetery', 'recreation_ground', 'village_green']
+    }
+    
+    water_polys = None
+    water_lines = None
+    parks = None
+
+    try:
+        features = ox.features_from_bbox(bbox, tags=tags)
         
-        G = ox.graph_from_bbox(bbox=(north, south, east, west), network_type='all')
-        pbar.update(1)
-        time.sleep(0.5)  # Rate limit between requests
-        
-        # 2. Fetch Water Features
-        pbar.set_description("Downloading water features")
-        try:
-            water = ox.features_from_bbox(bbox=(north, south, east, west), tags={'natural': 'water', 'waterway': 'riverbank'})
-        except:
-            water = None
-        pbar.update(1)
-        time.sleep(0.3)
-        
-        # 3. Fetch Parks
-        pbar.set_description("Downloading parks/green spaces")
-        try:
-            parks = ox.features_from_bbox(bbox=(north, south, east, west), tags={'leisure': 'park', 'landuse': 'grass'})
-        except:
-            parks = None
-        pbar.update(1)
+        # Separate features and simplify geometries for faster rendering
+        if features is not None and not features.empty:
+            # Safe mask creation for Water
+            water_mask = pd.Series(False, index=features.index)
+            if 'natural' in features.columns:
+                water_mask |= features['natural'].isin(['water'])
+            if 'waterway' in features.columns:
+                water_mask |= features['waterway'].notna()
+            
+            water = features[water_mask]
+            
+            if not water.empty:
+                # Water Polygons (Lakes, Wide Rivers)
+                water_polys = water[water.geometry.type.isin(['Polygon', 'MultiPolygon'])]
+                if not water_polys.empty:
+                    water_polys.geometry = water_polys.geometry.simplify(tolerance=0.00001, preserve_topology=True)
+                
+                # Water Lines (Rivers, Streams represented as lines)
+                water_lines = water[water.geometry.type.isin(['LineString', 'MultiLineString'])]
+            else:
+                water_polys, water_lines = None, None # No water features found
+                
+            # Green space/Parks features
+            park_mask = pd.Series(False, index=features.index)
+            if 'leisure' in features.columns:
+                park_mask |= features['leisure'].notna()
+            if 'landuse' in features.columns:
+                park_mask |= features['landuse'].isin(['forest', 'grass', 'cemetery', 'recreation_ground', 'village_green'])
+            if 'natural' in features.columns:
+                park_mask |= features['natural'].isin(['wood', 'scrub'])
+            
+            parks = features[park_mask]
+            if not parks.empty:
+                parks = parks[parks.geometry.type.isin(['Polygon', 'MultiPolygon'])]
+                # Simplify geometries
+                parks.geometry = parks.geometry.simplify(tolerance=0.00001, preserve_topology=True)
+            else:
+                parks = None # No park features found
+        else:
+            water_polys, water_lines, parks = None, None, None
+    except Exception as e:
+        print(f"Warning: Could not fetch features: {e}")
+        water_polys, water_lines, parks = None, None, None
+            
     
     print("✓ All data downloaded successfully!")
+    yield "Data downloaded. Rendering map..."
     
     # 2. Setup Plot
     print("Rendering map...")
@@ -269,13 +344,16 @@ def create_poster(city, country, point, dist, output_file, output_format, width=
     
     # 3. Plot Layers
     # Layer 1: Polygons (filter to only plot polygon/multipolygon geometries, not points)
-    if water is not None and not water.empty:
-        # Filter to only polygon/multipolygon geometries to avoid point features showing as dots
-        water_polys = water[water.geometry.type.isin(['Polygon', 'MultiPolygon'])]
-        if not water_polys.empty:
+    # Layer 1: Water (Polygons and Lines)
+    if show_water:
+        if water_polys is not None and not water_polys.empty:
             water_polys.plot(ax=ax, facecolor=THEME['water'], edgecolor='none', zorder=1)
+        
+        if water_lines is not None and not water_lines.empty:
+            # Plot water lines (rivers) with some thickness
+            water_lines.plot(ax=ax, color=THEME['water'], linewidth=2.0, zorder=1)
     
-    if parks is not None and not parks.empty:
+    if show_parks and parks is not None and not parks.empty:
         # Filter to only polygon/multipolygon geometries to avoid point features showing as dots
         parks_polys = parks[parks.geometry.type.isin(['Polygon', 'MultiPolygon'])]
         if not parks_polys.empty:
@@ -283,7 +361,13 @@ def create_poster(city, country, point, dist, output_file, output_format, width=
     
     # Layer 2: Roads with hierarchy coloring
     print("Applying road hierarchy colors...")
-    edge_colors = get_edge_colors_by_type(G)
+    yield "Applying road styles..."
+    edge_colors = get_edge_colors_by_type(
+        G, 
+        show_motorway=show_motorway, 
+        show_primary=show_primary, 
+        show_secondary=show_secondary
+    )
     edge_widths = get_edge_widths_by_type(G)
     
     ox.plot_graph(
@@ -298,66 +382,90 @@ def create_poster(city, country, point, dist, output_file, output_format, width=
     create_gradient_fade(ax, THEME['gradient_color'], location='bottom', zorder=10)
     create_gradient_fade(ax, THEME['gradient_color'], location='top', zorder=10)
     
-    # 4. Typography using Roboto font
+    # 4. Typography
+    is_chinese = has_chinese(city)
+    
     if FONTS:
-        font_main = FontProperties(fname=FONTS['bold'], size=60)
-        font_top = FontProperties(fname=FONTS['bold'], size=40)
-        font_sub = FontProperties(fname=FONTS['light'], size=22)
-        font_coords = FontProperties(fname=FONTS['regular'], size=14)
+        if is_chinese:
+            # Chinese styling
+            font_path = FONTS.get('cn') or FONTS.get('en_bold')
+            font_main_base = FontProperties(fname=font_path)
+            font_sub_base = FontProperties(fname=font_path)
+            font_coords = FontProperties(fname=font_path, size=14)
+            
+            display_city = city
+            display_country = country
+        else:
+            # English styling (Original)
+            font_path_bold = FONTS.get('en_bold')
+            font_path_reg = FONTS.get('en_regular')
+            font_main_base = FontProperties(fname=font_path_bold)
+            font_sub_base = FontProperties(fname=font_path_reg)
+            font_coords = FontProperties(fname=font_path_reg, size=14)
+            
+            # Spaced and uppercase for English
+            display_city = "  ".join(list(city.upper()))
+            display_country = country.upper()
     else:
         # Fallback to system fonts
-        font_main = FontProperties(family='monospace', weight='bold', size=60)
-        font_top = FontProperties(family='monospace', weight='bold', size=40)
-        font_sub = FontProperties(family='monospace', weight='normal', size=22)
+        font_main_base = FontProperties(family='serif', weight='bold')
+        font_sub_base = FontProperties(family='serif')
         font_coords = FontProperties(family='monospace', size=14)
+        
+        if is_chinese:
+            display_city = city
+            display_country = country
+        else:
+            display_city = "  ".join(list(city.upper()))
+            display_country = country.upper()
     
-    spaced_city = "  ".join(list(city.upper()))
-    
-    # Dynamically adjust font size based on city name length to prevent truncation
-    base_font_size = 60
+    # Dynamically adjust font size
+    base_font_size = 60 if not is_chinese else 54
     city_char_count = len(city)
-    if city_char_count > 10:
-        # Scale down font size for longer names
+    if not is_chinese and city_char_count > 10:
         scale_factor = 10 / city_char_count
-        adjusted_font_size = max(base_font_size * scale_factor, 24)  # Minimum size of 24
+        adjusted_font_size = max(base_font_size * scale_factor, 24)
+    elif is_chinese and city_char_count > 6:
+        scale_factor = 6 / city_char_count
+        adjusted_font_size = max(base_font_size * scale_factor, 32)
     else:
         adjusted_font_size = base_font_size
     
-    if FONTS:
-        font_main_adjusted = FontProperties(fname=FONTS['bold'], size=adjusted_font_size)
-    else:
-        font_main_adjusted = FontProperties(family='monospace', weight='bold', size=adjusted_font_size)
+    font_main = font_main_base.copy()
+    font_main.set_size(adjusted_font_size)
+    
+    font_sub = font_sub_base.copy()
+    font_sub.set_size(22)
 
     # --- BOTTOM TEXT ---
-    ax.text(0.5, 0.14, spaced_city, transform=ax.transAxes,
-            color=THEME['text'], ha='center', fontproperties=font_main_adjusted, zorder=11)
+    ax.text(0.5, 0.14, display_city, transform=ax.transAxes,
+            color=THEME['text'], ha='center', fontproperties=font_main, zorder=11)
     
-    ax.text(0.5, 0.10, country.upper(), transform=ax.transAxes,
+    ax.text(0.5, 0.10, display_country, transform=ax.transAxes,
             color=THEME['text'], ha='center', fontproperties=font_sub, zorder=11)
     
     lat, lon = point
-    coords = f"{lat:.4f}° N / {lon:.4f}° E" if lat >= 0 else f"{abs(lat):.4f}° S / {lon:.4f}° E"
+    coords_text = f"{lat:.4f}° N / {lon:.4f}° E" if lat >= 0 else f"{abs(lat):.4f}° S / {lon:.4f}° E"
     if lon < 0:
-        coords = coords.replace("E", "W")
+        coords_text = coords_text.replace("E", "W")
     
-    ax.text(0.5, 0.07, coords, transform=ax.transAxes,
+    ax.text(0.5, 0.07, coords_text, transform=ax.transAxes,
             color=THEME['text'], alpha=0.7, ha='center', fontproperties=font_coords, zorder=11)
     
     ax.plot([0.4, 0.6], [0.125, 0.125], transform=ax.transAxes, 
             color=THEME['text'], linewidth=1, zorder=11)
 
     # --- ATTRIBUTION (bottom right) ---
-    if FONTS:
-        font_attr = FontProperties(fname=FONTS['light'], size=8)
-    else:
-        font_attr = FontProperties(family='monospace', size=8)
+    attr_font = font_sub_base.copy()
+    attr_font.set_size(8)
     
     ax.text(0.98, 0.02, "© OpenStreetMap contributors", transform=ax.transAxes,
             color=THEME['text'], alpha=0.5, ha='right', va='bottom', 
-            fontproperties=font_attr, zorder=11)
+            fontproperties=attr_font, zorder=11)
 
     # 5. Save
     print(f"Saving to {output_file}...")
+    yield f"Saving to {output_file}..."
 
     fmt = output_format.lower()
     save_kwargs = dict(facecolor=THEME["bg"], pad_inches=0.05)
@@ -373,6 +481,7 @@ def create_poster(city, country, point, dist, output_file, output_format, width=
 
     plt.close()
     print(f"✓ Done! Poster saved as {output_file}")
+    yield "Done!"
 
 
 def print_examples():
@@ -472,7 +581,7 @@ Examples:
     parser.add_argument('--city', '-c', type=str, help='City name')
     parser.add_argument('--country', '-C', type=str, help='Country name')
     parser.add_argument('--theme', '-t', type=str, default='feature_based', help='Theme name (default: feature_based)')
-    parser.add_argument('--distance', '-d', type=int, default=29000, help='Map radius in meters (default: 29000)')
+    parser.add_argument('--distance', '-d', type=int, default=10000, help='Map radius in meters (default: 10000)')
     parser.add_argument('--width', '-W', type=float, default=12.0, help='Poster width in inches (default: 12.0)')
     parser.add_argument('--height', '-H', type=float, default=16.0, help='Poster height in inches (default: 16.0)')
     parser.add_argument('--no-crop', action='store_true', help='Do not crop the image to the data extent (keeps background)')
@@ -515,8 +624,12 @@ Examples:
     try:
         coords = get_coordinates(args.city, args.country)
         output_file = generate_output_filename(args.city, args.theme, args.format)
-        create_poster(args.city, args.country, coords, args.distance, output_file, args.format, 
-                      width=args.width, height=args.height, no_crop=args.no_crop)
+        
+        # Iterate over the generator to execute it
+        for status in create_poster(args.city, args.country, coords, args.distance, output_file, args.format, 
+                      width=args.width, height=args.height, no_crop=args.no_crop):
+            # We already print inside the function, but we act as a consumer here
+            pass
         
         print("\n" + "=" * 50)
         print("✓ Poster generation complete!")

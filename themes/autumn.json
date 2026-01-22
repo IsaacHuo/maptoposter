@@ -6,10 +6,10 @@
   "gradient_color": "#FBF7F0",
   "water": "#D8CFC0",
   "parks": "#E8E0D0",
-  "road_motorway": "#8B2500",
-  "road_primary": "#B8450A",
-  "road_secondary": "#CC7A30",
-  "road_tertiary": "#D9A050",
-  "road_residential": "#E8C888",
-  "road_default": "#CC7A30"
+  "road_motorway": "#701A00",
+  "road_primary": "#8B2500",
+  "road_secondary": "#B8450A",
+  "road_tertiary": "#CC7A30",
+  "road_residential": "#C9A050",
+  "road_default": "#B8450A"
 }
