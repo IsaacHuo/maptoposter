@@ -40,7 +40,13 @@
 - **🖼️ 多格式导出**：支持 PNG（高清打印）、SVG（矢量编辑）和 PDF。
 - **🖱️ 交互界面**：基于 Gradio 的现代化 Web UI，支持实时预览。
 
-### 🚀 快速开始
+### �️ 界面预览
+
+<p align="center">
+  <img src="public/image.png" width="800" alt="Web UI Preview">
+</p>
+
+### �🚀 快速开始
 
 #### 安装
 
@@ -103,6 +109,12 @@ Generate beautiful, minimalist map posters for any city in the world. This proje
     - **Layer Control**: Toggle Motorways, Primary roads, Secondary roads, Water, and Parks.
 - **🖼️ Multi-format Export**: Supports PNG (High-res), SVG (Vector), and PDF.
 - **🖱️ Interactive UI**: Modern Web UI built with Gradio with real-time preview.
+
+### 🖥️ UI Preview
+
+<p align="center">
+  <img src="public/image.png" width="800" alt="Web UI Preview">
+</p>
 
 ### 🚀 Quick Start
 
