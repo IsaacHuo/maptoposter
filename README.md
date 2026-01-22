@@ -1,12 +1,22 @@
 # 🌆 城市地图海报生成器 | City Map Poster Generator
 
-[中文](#中文) | [English](#english)
+<p align="center">
+  <a href="#中文"><b>中文</b></a> | <a href="#english"><b>English</b></a>
+</p>
+
+<p align="center">
+  <a href="https://huggingface.co/spaces/isaachwf/MapToPoster">
+    <img src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-yellow" alt="Hugging Face Spaces">
+  </a>
+</p>
 
 ---
 
 ## 中文
 
 为全球任何城市生成精美、简约的地图海报。该项目基于 [originalankur/maptoposter](https://github.com/originalankur/maptoposter) 开发。
+
+> **🚀 在线体验**：[Hugging Face Space](https://huggingface.co/spaces/isaachwf/MapToPoster)（受限于服务器资源，生成速度很慢。。。）
 
 <p align="center">
   <img src="posters/beijing_japanese_ink_20260121_211625.png" width="300">
@@ -48,8 +58,6 @@ uv run python app.py
 ```
 启动后在浏览器打开 [http://localhost:7860](http://localhost:7860)。
 
-**在线体验**：[Hugging Face Space](https://huggingface.co/spaces/isaachwf/MapToPoster)（受限于服务器资源，生成速度较慢）。
-
 > **提示**：如果遇到端口冲突，可以使用 `bash restart.sh` 脚本自动清理旧进程并重启服务。
 
 ### 🖼️ 示例展示
@@ -76,6 +84,8 @@ uv run python app.py
 ## English
 
 Generate beautiful, minimalist map posters for any city in the world. This project is developed based on [originalankur/maptoposter](https://github.com/originalankur/maptoposter).
+
+> **🚀 Live Demo**: [Hugging Face Space](https://huggingface.co/spaces/isaachwf/MapToPoster) (Note: Rendering is slow due to limited server resources).
 
 ### ⚠️ Limitations & Disclaimer
 
@@ -110,8 +120,6 @@ uv sync
 uv run python app.py
 ```
 Open [http://localhost:7860](http://localhost:7860) in your browser.
-
-**Live Demo**: [Hugging Face Space](https://huggingface.co/spaces/isaachwf/MapToPoster) (Note: Rendering is slow due to limited server resources).
 
 > **Tip**: If you encounter port conflicts, you can use the `bash restart.sh` script to automatically clear old processes and restart the service.
 
