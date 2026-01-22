@@ -48,6 +48,8 @@ uv run python app.py
 ```
 启动后在浏览器打开 [http://localhost:7860](http://localhost:7860)。
 
+**在线体验**：[Hugging Face Space](https://huggingface.co/spaces/isaachwf/MapToPoster)（受限于服务器资源，生成速度较慢）。
+
 > **提示**：如果遇到端口冲突，可以使用 `bash restart.sh` 脚本自动清理旧进程并重启服务。
 
 ### 🖼️ 示例展示
@@ -108,6 +110,8 @@ uv sync
 uv run python app.py
 ```
 Open [http://localhost:7860](http://localhost:7860) in your browser.
+
+**Live Demo**: [Hugging Face Space](https://huggingface.co/spaces/isaachwf/MapToPoster) (Note: Rendering is slow due to limited server resources).
 
 > **Tip**: If you encounter port conflicts, you can use the `bash restart.sh` script to automatically clear old processes and restart the service.
 
