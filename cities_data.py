@@ -861,11 +861,13 @@ def translate(text, target_lang='en'):
     return text
 
 def get_countries(lang='en'):
-    """Return list of countries in the target language."""
-    countries = []
+    """Return list of (Display, Key) tuples for countries."""
+    choices = []
     for country_key in sorted(CITIES.keys()):
-        countries.append(translate(country_key, lang))
-    return sorted(list(set(countries)))
+        display = translate(country_key, lang)
+        choices.append((display, country_key))
+    # Sort by display name
+    return sorted(choices, key=lambda x: x[0])
 
 def get_country_key(name):
     """Map a localized name back to the CITIES dictionary key."""
@@ -883,33 +885,36 @@ def get_country_key(name):
     return name
 
 def get_provinces(country_name, lang='en'):
-    """Return sorted list of provinces/states for a given country in target language."""
+    """Return list of (Display, Key) tuples for provinces/states."""
     country_key = get_country_key(country_name)
     if country_key in CITIES:
-        # Translate provinces to target lang
-        provinces = [translate(p, lang) for p in CITIES[country_key].keys()]
-        return sorted(provinces)
+        choices = []
+        for p_key in CITIES[country_key].keys():
+            display = translate(p_key, lang)
+            choices.append((display, p_key))
+        return sorted(choices, key=lambda x: x[0])
     return []
 
 def get_cities(country_name, province_name, lang='en'):
-    """Return sorted list of cities in target language."""
+    """Return list of (Display, Key) tuples for cities."""
     country_key = get_country_key(country_name)
-    # To find the province key, we might need to map it back if it was translated
-    # For now, let's assume provincial keys in CITIES are what we search against
-    # If the province_name is translated, we need to find the original key
+    # The province_name might be a key or a display name
+    # But since we use stable keys now, it should mostly be a key
     province_key = province_name
     if country_key in CITIES:
-        # Check if province_name is a direct key
         if province_name not in CITIES[country_key]:
-            # Try to find the key that translates to province_name
+            # Fallback: search by display name
             for p_key in CITIES[country_key].keys():
                 if translate(p_key, lang) == province_name:
                     province_key = p_key
                     break
         
         if province_key in CITIES[country_key]:
-            cities = [translate(c, lang) for c in CITIES[country_key][province_key]]
-            return sorted(cities)
+            choices = []
+            for c_name in CITIES[country_key][province_key]:
+                display = translate(c_name, lang)
+                choices.append((display, c_name))
+            return sorted(choices, key=lambda x: x[0])
     return []
 
 def search_cities(query):

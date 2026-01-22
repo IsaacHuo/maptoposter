@@ -157,6 +157,8 @@ def generate_poster(
     show_parks = any(x in ["Parks", "公园"] for x in layers_selection)
     
     # Parse country
+    # Since we now use (Display, Value) tuples where Value is the key, 
+    # country_display is likely already the key. get_country_key remains for safety.
     selected_country = get_country_key(country_display)
     
     # Use dropdown selection
@@ -247,20 +249,21 @@ def generate_poster(
 
 def update_provinces(country, lang='en'):
     """Update province dropdown based on country selection and language."""
-    # Map back to internal key for data lookup
+    # country is the internal key
     lang_code = 'en' if lang == "English" else 'cn'
     provinces = get_provinces(country, lang_code)
     if provinces:
-        return gr.update(choices=provinces, value=provinces[0], visible=True)
+        return gr.update(choices=provinces, value=provinces[0][1], visible=True)
     return gr.update(choices=[], value=None, visible=False)
 
 
 def update_cities(country, province, lang='en'):
     """Update city dropdown based on province selection and language."""
+    # country and province are internal keys
     lang_code = 'en' if lang == "English" else 'cn'
     cities = get_cities(country, province, lang_code)
     if cities:
-        return gr.update(choices=cities, value=cities[0])
+        return gr.update(choices=cities, value=cities[0][1])
     return gr.update(choices=[], value=None)
 
 
@@ -280,11 +283,11 @@ def create_interface():
     countries = get_countries(default_lang_code)
     theme_choices = get_theme_choices(default_lang_code)
     
-    default_country = "China" if "China" in countries else countries[0]
-    default_provinces = get_provinces(default_country, default_lang_code)
-    default_province = default_provinces[0] if default_provinces else None
-    default_cities = get_cities(default_country, default_province, default_lang_code) if default_province else []
-    default_city = default_cities[0] if default_cities else None
+    default_country_key = "中国"
+    default_provinces = get_provinces(default_country_key, default_lang_code)
+    default_province_key = default_provinces[0][1] if default_provinces else None
+    default_cities = get_cities(default_country_key, default_province_key, default_lang_code) if default_province_key else []
+    default_city_key = default_cities[0][1] if default_cities else None
     default_theme = theme_choices[0][1] if theme_choices else "feature_based"
     default_layers = LAYERS_EN
     
@@ -322,21 +325,21 @@ def create_interface():
                 
                 country_dropdown = gr.Dropdown(
                     choices=countries,
-                    value=default_country,
+                    value=default_country_key,
                     label="选择国家",
                     interactive=True
                 )
                 
                 province_dropdown = gr.Dropdown(
                     choices=default_provinces,
-                    value=default_province,
+                    value=default_province_key,
                     label="选择省份/州",
                     interactive=True
                 )
                 
                 city_dropdown = gr.Dropdown(
                     choices=default_cities,
-                    value=default_city,
+                    value=default_city_key,
                     label="选择城市",
                     interactive=True
                 )
@@ -438,27 +441,19 @@ def create_interface():
         # --- Event Handlers ---
         
         # Language change -> update all dropdowns
-        def on_lang_change(lang, current_theme, current_layers):
+        def on_lang_change(lang, current_country, current_province, current_city, current_theme, current_layers):
             lang_code = 'en' if lang == "English" else 'cn'
             new_countries = get_countries(lang_code)
             
-            # Find closest match for current selections if possible
-            default_co = "China" if lang == "English" else "中国"
-            if default_co not in new_countries:
-                default_co = new_countries[0]
-            
-            new_provinces = get_provinces(default_co, lang_code)
-            default_pr = new_provinces[0] if new_provinces else None
-            
-            new_cities = get_cities(default_co, default_pr, lang_code) if default_pr else []
-            default_ci = new_cities[0] if new_cities else None
+            # Use keys to maintain selection
+            new_provinces = get_provinces(current_country, lang_code)
+            new_cities = get_cities(current_country, current_province, lang_code) if current_province else []
             
             # Themes
             new_theme_choices = get_theme_choices(lang_code)
             new_preview = get_theme_preview_html(current_theme, lang)
             
             # Layers
-            # Map current selection to keys then to new language
             map_en_to_key = dict(zip(LAYERS_EN, LAYER_KEYS))
             map_cn_to_key = dict(zip(LAYERS_CN, LAYER_KEYS))
             map_key_to_en = dict(zip(LAYER_KEYS, LAYERS_EN))
@@ -474,9 +469,9 @@ def create_interface():
             new_layer_values = [target_map[k] for k in current_keys if k in target_map]
             
             return (
-                gr.update(choices=new_countries, value=default_co),
-                gr.update(choices=new_provinces, value=default_pr),
-                gr.update(choices=new_cities, value=default_ci),
+                gr.update(choices=new_countries, value=current_country),
+                gr.update(choices=new_provinces, value=current_province),
+                gr.update(choices=new_cities, value=current_city),
                 gr.update(choices=new_theme_choices),
                 new_preview,
                 gr.update(choices=new_layer_choices, value=new_layer_values, label="Layers" if lang == "English" else "图层显示")
@@ -484,7 +479,7 @@ def create_interface():
 
         lang_radio.change(
             fn=on_lang_change,
-            inputs=[lang_radio, theme_dropdown, layers_checkbox],
+            inputs=[lang_radio, country_dropdown, province_dropdown, city_dropdown, theme_dropdown, layers_checkbox],
             outputs=[country_dropdown, province_dropdown, city_dropdown, theme_dropdown, theme_preview, layers_checkbox]
         )
         
