@@ -48,6 +48,8 @@ uv run python app.py
 ```
 启动后在浏览器打开 [http://localhost:7860](http://localhost:7860)。
 
+> **提示**：如果遇到端口冲突，可以使用 `bash restart.sh` 脚本自动清理旧进程并重启服务。
+
 ### 🖼️ 示例展示
 
 | 国家 | 城市 | 主题 | 海报预览 |
@@ -106,6 +108,8 @@ uv sync
 uv run python app.py
 ```
 Open [http://localhost:7860](http://localhost:7860) in your browser.
+
+> **Tip**: If you encounter port conflicts, you can use the `bash restart.sh` script to automatically clear old processes and restart the service.
 
 ### 🖼️ Examples
 
