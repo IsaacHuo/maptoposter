@@ -296,6 +296,14 @@ def create_interface():
         gr.HTML("""
             <div class="header-title">城市地图海报生成器</div>
             <div class="header-subtitle">选择任意城市，自定义主题风格，生成精美地图海报</div>
+            
+            <div style="max-width: 800px; margin: 0 auto 20px auto; padding: 12px; background: #fff5f5; border: 1px solid #feb2b2; border-radius: 8px; text-align: left; font-size: 13px; line-height: 1.6; color: #c53030;">
+                <b>⚠️ 注意：</b><br>
+                • <b>特大城市</b>（如北京）：中心定位可能不准。<br>
+                • <b>小城市</b>：由于 OpenStreetMap 数据缺失，部分图层（如公园/水域）可能无法显示。<br>
+                • <b>生成速度</b>：使用国外服务器数据且渲染逻辑较基础，下载和生成速度可能较慢。<br>
+                • <b>数据来源</b>：© OpenStreetMap contributors
+            </div>
         """)
         
         with gr.Row():
@@ -535,14 +543,6 @@ def create_interface():
             <div style="text-align: center; margin-top: 24px; padding: 20px; color: #666; font-size: 13px; border-top: 1px solid #eee;">
                 <p>项目地址: <a href="https://github.com/IsaacHuo/maptoposter" target="_blank" style="color: #764ba2; text-decoration: none; font-weight: bold;">GitHub - IsaacHuo/maptoposter</a></p>
                 <p>✨ 欢迎提 <b>Issue</b> 和 <b>PR</b> | 鸣谢：该项目基于 <a href="https://github.com/originalankur/maptoposter" target="_blank" style="color: #666;">originalankur/maptoposter</a> 开发</p>
-                
-                <div style="max-width: 600px; margin: 15px auto; padding: 10px; background: #f9f9f9; border-radius: 6px; text-align: left; font-size: 12px; line-height: 1.6;">
-                    <b>⚠️ 注意：</b><br>
-                    • <b>特大城市</b>（如北京）：可能会出现中心定位不准的问题。<br>
-                    • <b>小城市</b>：由于 OpenStreetMap 数据缺失，部分图层元素可能无法显示。<br>
-                    • <b>生成速度</b>：由于使用国外服务器资源（OSM/Nominatim）且渲染方式较基础，下载和生成速度可能较慢。<br>
-                    • <b>数据来源</b>：© OpenStreetMap contributors
-                </div>
             </div>
         """)
     
