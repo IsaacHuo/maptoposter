@@ -1,8 +1,24 @@
-# -*- coding: utf-8 -*-
-"""
-Cities database with hierarchical structure for cascading selection.
-Format: Country -> Province/State -> Cities
-"""
+import json
+import os
+
+CHINA_DATA_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "public", "china-city-data"
+)
+_CHINA_INFO_CACHE = None
+
+
+def _load_china_info():
+    global _CHINA_INFO_CACHE
+    if _CHINA_INFO_CACHE is None:
+        info_path = os.path.join(CHINA_DATA_DIR, "info.json")
+        try:
+            with open(info_path, "r", encoding="utf-8") as f:
+                _CHINA_INFO_CACHE = json.load(f)
+        except Exception as e:
+            print(f"Error loading China city data: {e}")
+            _CHINA_INFO_CACHE = {}
+    return _CHINA_INFO_CACHE
+
 
 CITIES = {
     "中国": {
@@ -10,7 +26,18 @@ CITIES = {
         "上海": ["上海"],
         "天津": ["天津"],
         "重庆": ["重庆"],
-        "广东": ["广州", "深圳", "东莞", "佛山", "珠海", "惠州", "中山", "汕头", "湛江", "江门"],
+        "广东": [
+            "广州",
+            "深圳",
+            "东莞",
+            "佛山",
+            "珠海",
+            "惠州",
+            "中山",
+            "汕头",
+            "湛江",
+            "江门",
+        ],
         "浙江": ["杭州", "宁波", "温州", "绍兴", "嘉兴", "金华", "台州", "湖州"],
         "江苏": ["南京", "苏州", "无锡", "常州", "南通", "徐州", "扬州", "镇江"],
         "山东": ["济南", "青岛", "烟台", "威海", "潍坊", "临沂", "济宁", "淄博"],
@@ -42,9 +69,24 @@ CITIES = {
         "台湾": ["台北", "高雄", "台中", "台南", "新竹", "基隆"],
     },
     "USA": {
-        "California": ["Los Angeles", "San Francisco", "San Diego", "San Jose", "Sacramento", "Oakland", "Fresno"],
+        "California": [
+            "Los Angeles",
+            "San Francisco",
+            "San Diego",
+            "San Jose",
+            "Sacramento",
+            "Oakland",
+            "Fresno",
+        ],
         "New York": ["New York City", "Buffalo", "Rochester", "Albany", "Syracuse"],
-        "Texas": ["Houston", "Dallas", "Austin", "San Antonio", "Fort Worth", "El Paso"],
+        "Texas": [
+            "Houston",
+            "Dallas",
+            "Austin",
+            "San Antonio",
+            "Fort Worth",
+            "El Paso",
+        ],
         "Florida": ["Miami", "Orlando", "Tampa", "Jacksonville", "Fort Lauderdale"],
         "Illinois": ["Chicago", "Aurora", "Naperville", "Rockford"],
         "Pennsylvania": ["Philadelphia", "Pittsburgh", "Harrisburg"],
@@ -72,7 +114,19 @@ CITIES = {
         "沖縄": ["Naha", "Okinawa"],
     },
     "UK": {
-        "England": ["London", "Manchester", "Birmingham", "Liverpool", "Leeds", "Bristol", "Sheffield", "Newcastle", "Nottingham", "Cambridge", "Oxford"],
+        "England": [
+            "London",
+            "Manchester",
+            "Birmingham",
+            "Liverpool",
+            "Leeds",
+            "Bristol",
+            "Sheffield",
+            "Newcastle",
+            "Nottingham",
+            "Cambridge",
+            "Oxford",
+        ],
         "Scotland": ["Edinburgh", "Glasgow", "Aberdeen", "Dundee"],
         "Wales": ["Cardiff", "Swansea", "Newport"],
         "Northern Ireland": ["Belfast", "Londonderry"],
@@ -486,7 +540,6 @@ CN_TO_EN = {
     "孟加拉国": "Bangladesh",
     "斯里兰卡": "Sri Lanka",
     "尼泊尔": "Nepal",
-    
     # Chinese Provinces (CN -> EN)
     "北京": "Beijing",
     "上海": "Shanghai",
@@ -522,7 +575,6 @@ CN_TO_EN = {
     "香港": "Hong Kong",
     "澳门": "Macau",
     "台湾": "Taiwan",
-
     # Chinese Cities (CN -> EN)
     "广州": "Guangzhou",
     "深圳": "Shenzhen",
@@ -627,7 +679,6 @@ CN_TO_EN = {
     "本溪": "Benxi",
     "营口": "Yingkou",
     "长春": "Changchun",
-    "吉林": "Jilin",
     "四平": "Siping",
     "通化": "Tonghua",
     "延边": "Yanbian",
@@ -688,10 +739,7 @@ CN_TO_EN = {
     "台南": "Tainan",
     "新竹": "Hsinchu",
     "基隆": "Keelung",
-    
-    
     # Theme Names - MOVED TO EN_TO_CN
-
 }
 
 # English name to Chinese (for when UI/Poster is in Chinese)
@@ -753,7 +801,6 @@ EN_TO_CN = {
     "Bangladesh": "孟加拉国",
     "Sri Lanka": "斯里兰卡",
     "Nepal": "尼泊尔",
-    
     # Common Cities
     "New York City": "纽约",
     "London": "伦敦",
@@ -763,7 +810,6 @@ EN_TO_CN = {
     "Shenzhen": "深圳",
     "Beijing": "北京",
     "Shanghai": "上海",
-
     # Theme Names
     "Feature-Based Shading": "特征着色",
     "Japanese Ink": "日式水墨",
@@ -791,9 +837,16 @@ for k, v in CN_TO_EN.items():
 
 # Expose helpers
 __all__ = [
-    'CITIES', 'get_countries', 'get_provinces', 'get_cities', 
-    'get_city_full_name', 'translate', 'get_country_key',
-    'get_manual_coordinates'
+    "CITIES",
+    "get_countries",
+    "get_provinces",
+    "get_cities",
+    "get_districts",
+    "get_city_full_name",
+    "translate",
+    "get_country_key",
+    "get_manual_coordinates",
+    "get_china_adcode",
 ]
 
 # Manual overrides for city centers to ensure logical centering (e.g. Tiananmen for Beijing)
@@ -836,31 +889,69 @@ CITY_CENTERS = {
     "东京": (35.6895, 139.6917),
 }
 
-def get_manual_coordinates(city_name):
-    """Return manual coordinates if available, else None."""
-    if not city_name:
-        return None
-    return CITY_CENTERS.get(city_name)
 
-def translate(text, target_lang='en'):
+def get_manual_coordinates(name, parent_adcode=None):
+    """Return manual coordinates if available, else None."""
+    if not name:
+        return None
+
+    # Priority 1: Hardcoded overrides
+    coords = CITY_CENTERS.get(name)
+    if coords:
+        return coords
+
+    # Priority 2: Local China data if parent_adcode is known
+    if parent_adcode:
+        info = _load_china_info()
+        parent_entry = info.get(str(parent_adcode))
+        if parent_entry and "children" in parent_entry:
+            for child in parent_entry["children"]:
+                if child["name"] == name:
+                    # center is [lng, lat]
+                    return (child["center"][1], child["center"][0])
+
+    return None
+
+
+def get_china_adcode(name, parent_adcode=None):
+    """Search for adcode by name in local China data."""
+    info = _load_china_info()
+    if not parent_adcode:
+        # Check provinces
+        china_entry = info.get("100000")
+        if china_entry:
+            for p in china_entry.get("children", []):
+                if p["name"] == name or p["name"].rstrip("省").rstrip("市") == name:
+                    return p["adcode"]
+    else:
+        parent_entry = info.get(str(parent_adcode))
+        if parent_entry:
+            for child in parent_entry.get("children", []):
+                if child["name"] == name:
+                    return child["adcode"]
+    return None
+
+
+def translate(text, target_lang="en"):
     """
     Simple translation helper.
     target_lang: 'en' or 'cn'
     """
     if not text:
         return text
-        
-    if target_lang == 'en':
+
+    if target_lang == "en":
         # If text is already in CN_TO_EN keys (Chinese), return the English value
         return CN_TO_EN.get(text, text)
-    
-    if target_lang == 'cn':
+
+    if target_lang == "cn":
         # If text is in EN_TO_CN keys (English), return the Chinese value
         return EN_TO_CN.get(text, text)
-    
+
     return text
 
-def get_countries(lang='en'):
+
+def get_countries(lang="en"):
     """Return list of (Display, Key) tuples for countries."""
     choices = []
     for country_key in sorted(CITIES.keys()):
@@ -868,6 +959,7 @@ def get_countries(lang='en'):
         choices.append((display, country_key))
     # Sort by display name
     return sorted(choices, key=lambda x: x[0])
+
 
 def get_country_key(name):
     """Map a localized name back to the CITIES dictionary key."""
@@ -884,9 +976,25 @@ def get_country_key(name):
         return en_name
     return name
 
-def get_provinces(country_name, lang='en'):
+
+def get_provinces(country_name, lang="en"):
     """Return list of (Display, Key) tuples for provinces/states."""
     country_key = get_country_key(country_name)
+
+    # Special handling for China using local data
+    if country_key == "中国":
+        info = _load_china_info()
+        china_entry = info.get("100000")
+        if china_entry:
+            choices = []
+            for p in china_entry.get("children", []):
+                name = p["name"]
+                # For UI display, maybe strip '省' if in English?
+                # Actually following current project style, we use Chinese keys for China
+                display = translate(name, lang)
+                choices.append((display, name))
+            return sorted(choices, key=lambda x: x[0])
+
     if country_key in CITIES:
         choices = []
         for p_key in CITIES[country_key].keys():
@@ -895,20 +1003,40 @@ def get_provinces(country_name, lang='en'):
         return sorted(choices, key=lambda x: x[0])
     return []
 
-def get_cities(country_name, province_name, lang='en'):
+
+def get_cities(country_name, province_name, lang="en"):
     """Return list of (Display, Key) tuples for cities."""
     country_key = get_country_key(country_name)
-    # The province_name might be a key or a display name
-    # But since we use stable keys now, it should mostly be a key
+
+    if country_key == "中国":
+        p_adcode = get_china_adcode(province_name)
+        if p_adcode:
+            info = _load_china_info()
+            p_entry = info.get(str(p_adcode))
+            if p_entry:
+                choices = []
+                for c in p_entry.get("children", []):
+                    name = c["name"]
+                    display = translate(name, lang)
+                    choices.append((display, name))
+                # Add the province itself if it's a municipality?
+                # info.json treats municipalities as provinces with districts as children.
+                # If children level is 'district', then the 'cities' list should be just [province_name]
+                if (
+                    p_entry.get("children")
+                    and p_entry["children"][0].get("level") == "district"
+                ):
+                    return [(translate(province_name, lang), province_name)]
+                return sorted(choices, key=lambda x: x[0])
+
     province_key = province_name
     if country_key in CITIES:
         if province_name not in CITIES[country_key]:
-            # Fallback: search by display name
             for p_key in CITIES[country_key].keys():
                 if translate(p_key, lang) == province_name:
                     province_key = p_key
                     break
-        
+
         if province_key in CITIES[country_key]:
             choices = []
             for c_name in CITIES[country_key][province_key]:
@@ -917,6 +1045,44 @@ def get_cities(country_name, province_name, lang='en'):
             return sorted(choices, key=lambda x: x[0])
     return []
 
+
+def get_districts(country_name, province_name, city_name, lang="en"):
+    """Return list of (Display, Key) tuples for districts."""
+    country_key = get_country_key(country_name)
+    if country_key != "中国":
+        return []
+
+    p_adcode = get_china_adcode(province_name)
+    if not p_adcode:
+        return []
+
+    c_adcode = get_china_adcode(city_name, p_adcode)
+    if not c_adcode:
+        # Case: City is the same as Province (Municipality)
+        if city_name == province_name:
+            c_adcode = p_adcode
+        else:
+            return []
+
+    info = _load_china_info()
+    c_entry = info.get(str(c_adcode))
+    if c_entry:
+        choices = []
+        # Add "Whole City" option
+        whole_city_display = "整个城市" if lang == "cn" else "Whole City"
+        choices.append(
+            (whole_city_display, city_name)
+        )  # Use city name as key for 'whole city'
+
+        for d in c_entry.get("children", []):
+            name = d["name"]
+            display = translate(name, lang)
+            choices.append((display, name))
+        # Keep "Whole City" at top, then sorted districts
+        return [choices[0]] + sorted(choices[1:], key=lambda x: x[0])
+    return []
+
+
 def search_cities(query):
     """
     Search for cities matching the query (checks both Native and English names).
@@ -924,21 +1090,21 @@ def search_cities(query):
     """
     if not query or len(query) < 2:
         return []
-    
+
     query = query.lower()
     results = []
-    
+
     for country, provinces in CITIES.items():
-        country_en = CN_TO_EN.get(country, "").lower()
         for province, cities in provinces.items():
             for city in cities:
                 city_en = CN_TO_EN.get(city, "").lower()
                 # Match against native name or English name
                 if query in city.lower() or (city_en and query in city_en):
                     results.append((city, province, country))
-    
+
     # Sort by city name
     return sorted(results, key=lambda x: x[0])[:20]
+
 
 def get_city_full_name(city, province, country, target_lang=None):
     """
