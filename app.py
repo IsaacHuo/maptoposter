@@ -174,8 +174,31 @@ def generate_poster(
 
     # Determine display names based on poster_lang
     lang_code = "en" if poster_lang == "English" else "cn"
-    display_city = translate(selected_location, lang_code)
-    display_country = translate(selected_country, lang_code)
+
+    if selected_country == "中国" and lang_code == "cn":
+        # Hierarchical logic for China (Chinese language)
+        if district_dropdown and district_dropdown != city_dropdown:
+            # Case 3 & 4: District selected
+            display_city = district_dropdown
+            if province == city_dropdown:
+                # Case 3: District of Municipality
+                display_country = f"中国 {province}"
+            else:
+                # Case 4: District of Regular City
+                display_country = f"中国 {province} {city_dropdown}"
+        else:
+            # Case 1 & 2: City selected (or "Whole City")
+            display_city = city_dropdown
+            if province == city_dropdown:
+                # Case 1: Municipality
+                display_country = "中国"
+            else:
+                # Case 2: Regular City
+                display_country = f"中国 {province}"
+    else:
+        # Standard logic for International or English posters
+        display_city = translate(selected_location, lang_code)
+        display_country = translate(selected_country, lang_code)
 
     progress(0.1, desc="正在加载主题...")
 
