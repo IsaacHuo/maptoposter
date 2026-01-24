@@ -323,9 +323,9 @@ def on_theme_change(theme_name, lang="en"):
 def create_interface():
     """Create and return the Gradio interface."""
 
-    # Get initial data (Default English)
-    default_lang_code = "en"
-    default_lang_radio = "English"
+    # Get initial data (Default Chinese)
+    default_lang_code = "cn"
+    default_lang_radio = "中文"
     countries = get_countries(default_lang_code)
     theme_choices = get_theme_choices(default_lang_code)
 
@@ -365,8 +365,8 @@ def create_interface():
                 gr.HTML('<div class="section-title">📍 城市选择</div>')
 
                 lang_radio = gr.Radio(
-                    choices=["English", "Chinese"],
-                    value="English",
+                    choices=["中文", "English"],
+                    value="中文",
                     label="海报语言",
                     info="选择海报及界面的显示语言",
                 )

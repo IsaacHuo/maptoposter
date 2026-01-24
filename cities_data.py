@@ -575,6 +575,31 @@ CN_TO_EN = {
     "香港": "Hong Kong",
     "澳门": "Macau",
     "台湾": "Taiwan",
+    # Japan Regions
+    "関東": "Kanto",
+    "関西": "Kansai",
+    "中部": "Chubu",
+    "北海道": "Hokkaido",
+    "九州": "Kyushu",
+    "東北": "Tohoku",
+    "四国": "Shikoku",
+    "沖縄": "Okinawa",
+    # Russia Regions
+    "Центральный": "Central",
+    "Северо-Западный": "Northwestern",
+    "Южный": "Southern",
+    "Приволжский": "Volga",
+    "Уральский": "Ural",
+    "Сибирский": "Siberian",
+    "Дальневосточный": "Far Eastern",
+    # Korea Regions
+    "서울특별시": "Seoul",
+    "부산광역시": "Busan",
+    "경기도": "Gyeonggi-do",
+    "대구광역시": "Daegu",
+    "대전광역시": "Daejeon",
+    "광주광역시": "Gwangju",
+    "제주특별자치도": "Jeju",
     # Chinese Cities (CN -> EN)
     "广州": "Guangzhou",
     "深圳": "Shenzhen",
@@ -810,6 +835,141 @@ EN_TO_CN = {
     "Shenzhen": "深圳",
     "Beijing": "北京",
     "Shanghai": "上海",
+    # USA States
+    "California": "加利福尼亚州",
+    "New York": "纽约州",
+    "Texas": "德克萨斯州",
+    "Florida": "佛罗里达州",
+    "Illinois": "伊利诺伊州",
+    "Pennsylvania": "宾夕法尼亚州",
+    "Arizona": "亚利桑那州",
+    "Nevada": "内华达州",
+    "Washington": "华盛顿州",
+    "Massachusetts": "马萨诸塞州",
+    "Colorado": "科罗拉多州",
+    "Georgia": "佐治亚州",
+    "North Carolina": "北卡罗来纳州",
+    "Michigan": "密歇根州",
+    "Oregon": "俄勒冈州",
+    "District of Columbia": "哥伦比亚特区",
+    "Hawaii": "夏威夷州",
+    # USA Cities
+    "Los Angeles": "洛杉矶",
+    "San Francisco": "旧金山",
+    "San Diego": "圣地亚哥",
+    "San Jose": "圣何塞",
+    "Sacramento": "萨克拉门托",
+    "Oakland": "奥克兰",
+    "Fresno": "弗雷斯诺",
+    "Buffalo": "布法罗",
+    "Rochester": "罗切斯特",
+    "Albany": "奥尔巴尼",
+    "Syracuse": "雪城",
+    "Houston": "休斯顿",
+    "Dallas": "达拉斯",
+    "Austin": "奥斯汀",
+    "San Antonio": "圣安东尼奥",
+    "Fort Worth": "沃思堡",
+    "El Paso": "埃尔帕索",
+    "Miami": "迈阿密",
+    "Orlando": "奥兰多",
+    "Tampa": "坦帕",
+    "Jacksonville": "杰克逊维尔",
+    "Fort Lauderdale": "劳德代尔堡",
+    "Chicago": "芝加哥",
+    "Philadelphia": "费城",
+    "Pittsburgh": "匹兹堡",
+    "Phoenix": "菲尼克斯",
+    "Tucson": "图森",
+    "Las Vegas": "拉斯维加斯",
+    "Seattle": "西雅图",
+    "Boston": "波士顿",
+    "Denver": "丹佛",
+    "Atlanta": "亚特兰大",
+    "Charlotte": "夏洛特",
+    "Detroit": "底特律",
+    "Portland": "波特兰",
+    "Honolulu": "火奴鲁鲁",
+    # UK
+    "England": "英格兰",
+    "Scotland": "苏格兰",
+    "Wales": "威尔士",
+    "Northern Ireland": "北爱尔兰",
+    "Manchester": "曼彻斯特",
+    "Birmingham": "伯明翰",
+    "Liverpool": "利物浦",
+    "Leeds": "利兹",
+    "Edinburgh": "爱丁堡",
+    "Glasgow": "格拉斯哥",
+    "Cardiff": "加的夫",
+    "Belfast": "贝尔法斯特",
+    # Japan
+    "Yokohama": "横滨",
+    "Kawasaki": "川崎",
+    "Saitama": "埼玉",
+    "Chiba": "千叶",
+    "Osaka": "大阪",
+    "Kyoto": "京都",
+    "Kobe": "神户",
+    "Nara": "奈良",
+    "Nagoya": "名古屋",
+    "Sapporo": "札幌",
+    "Fukuoka": "福冈",
+    # France
+    "Île-de-France": "法兰西岛",
+    "Provence-Alpes-Côte d'Azur": "普罗旺斯-阿尔卑斯-蓝色海岸",
+    "Marseille": "马赛",
+    "Lyon": "里昂",
+    "Nice": "尼斯",
+    # Germany
+    "Bayern": "巴伐利亚",
+    "Berlin": "柏林",
+    "Hamburg": "汉堡",
+    "Munich": "慕尼黑",
+    "Frankfurt": "法兰克福",
+    "Cologne": "科隆",
+    # Italy
+    "Lazio": "拉齐奥",
+    "Lombardia": "伦巴第",
+    "Rome": "罗马",
+    "Milan": "米兰",
+    "Venice": "威尼斯",
+    "Florence": "佛罗伦萨",
+    "Naples": "那不勒斯",
+    # Spain
+    "Madrid": "马德里",
+    "Barcelona": "巴塞罗那",
+    "Seville": "塞维利亚",
+    # Canada
+    "Ontario": "安大略省",
+    "British Columbia": "不列颠哥伦比亚省",
+    "Quebec": "魁北克省",
+    "Toronto": "多伦多",
+    "Vancouver": "温哥华",
+    "Montreal": "蒙特利尔",
+    "Ottawa": "渥太华",
+    # Australia
+    "New South Wales": "新南威尔士州",
+    "Victoria": "维多利亚州",
+    "Sydney": "悉尼",
+    "Melbourne": "墨尔本",
+    "Brisbane": "布里斯班",
+    "Perth": "珀斯",
+    # Russia
+    "Moscow": "莫斯科",
+    "Saint Petersburg": "圣彼得堡",
+    # Others
+    "Bangkok": "曼谷",
+    "Seoul": "首尔",
+    "Kuala Lumpur": "吉隆坡",
+    "Singapore": "新加坡",
+    "New Delhi": "新德里",
+    "Mumbai": "孟买",
+    "Dubai": "迪拜",
+    "Cairo": "开罗",
+    "Sao Paulo": "圣保罗",
+    "Rio de Janeiro": "里约热内卢",
+    "Mexico City": "墨西哥城",
     # Theme Names
     "Feature-Based Shading": "特征着色",
     "Japanese Ink": "日式水墨",
@@ -942,7 +1102,17 @@ def translate(text, target_lang="en"):
 
     if target_lang == "en":
         # If text is already in CN_TO_EN keys (Chinese), return the English value
-        return CN_TO_EN.get(text, text)
+        if text in CN_TO_EN:
+            return CN_TO_EN[text]
+        
+        # Try stripping common suffixes
+        for suffix in ["市", "省", "自治区", "特别行政区", "回族自治区", "维吾尔自治区", "壮族自治区"]:
+            if text.endswith(suffix):
+                stripped = text[:-len(suffix)]
+                if stripped in CN_TO_EN:
+                    return CN_TO_EN[stripped]
+                    
+        return text
 
     if target_lang == "cn":
         # If text is in EN_TO_CN keys (English), return the Chinese value
