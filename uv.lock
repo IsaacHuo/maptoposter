@@ -714,7 +714,7 @@ requires-dist = [
     { name = "geographiclib", specifier = "==2.1" },
     { name = "geopandas", specifier = "==1.1.2" },
     { name = "geopy", specifier = "==2.4.1" },
-    { name = "gradio", specifier = ">=4.0.0" },
+    { name = "gradio" },
     { name = "idna", specifier = "==3.11" },
     { name = "kiwisolver", specifier = "==1.4.9" },
     { name = "matplotlib", specifier = "==3.10.8" },

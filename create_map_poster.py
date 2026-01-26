@@ -43,18 +43,18 @@ def load_fonts():
 FONTS = load_fonts()
 
 
-def generate_output_filename(city, theme_name, output_format):
+def generate_output_filename(city, theme_name, output_format, directory=POSTERS_DIR):
     """
     Generate unique output filename with city, theme, and datetime.
     """
-    if not os.path.exists(POSTERS_DIR):
-        os.makedirs(POSTERS_DIR)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     city_slug = city.lower().replace(" ", "_")
     ext = output_format.lower()
     filename = f"{city_slug}_{theme_name}_{timestamp}.{ext}"
-    return os.path.join(POSTERS_DIR, filename)
+    return os.path.join(directory, filename)
 
 
 def get_available_themes():
@@ -327,8 +327,14 @@ def create_poster(
     # Progress bar for data fetching
     # Note: tqdm writes to stderr, we will just yield status updates for the UI
 
-    # 1. Fetch Street Network using a bounding box
-    yield "Downloading street network..."
+    # 1. Fetch Street Network
+    # Detect if we are doing a "Whole Province" (large area)
+    # If the bounding box is very large, we should limit the road types to avoid timeouts
+    is_large_area = False
+    if dist > 50000: # Over 50km half-width is likely a province or large region
+        is_large_area = True
+        print(f"Large area detected (dist={dist}m). Fetching major roads only.")
+        yield "Large region detected. Fetching major roads only to avoid timeout..."
 
     import math
 
@@ -340,7 +346,17 @@ def create_poster(
     west, east = lon - delta_lon, lon + delta_lon
 
     bbox = (west, south, east, north)
-    G = ox.graph_from_bbox(bbox, network_type="all")
+    
+    if is_large_area:
+        # Use custom filter for major roads only
+        custom_filter = (
+            '["highway"~"motorway|trunk|primary|secondary"]'
+        )
+        yield "Downloading major road network..."
+        G = ox.graph_from_bbox(bbox, custom_filter=custom_filter, network_type="drive")
+    else:
+        yield "Downloading street network..."
+        G = ox.graph_from_bbox(bbox, network_type="all")
 
     # 2. Fetch Water and Parks in one request
     yield "Downloading features (water, parks)..."

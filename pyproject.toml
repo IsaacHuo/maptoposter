@@ -37,7 +37,7 @@ dependencies = [
     "tqdm==4.67.1",
     "tzdata==2025.3",
     "urllib3==2.6.3",
-    "gradio>=4.0.0",
+    "gradio",
 ]
 
 [build-system]

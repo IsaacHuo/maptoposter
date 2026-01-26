@@ -5,6 +5,29 @@ Gradio Web Interface for City Map Poster Generator
 
 import os
 import json
+import tempfile
+
+# Monkey-patch gradio_client bug before importing gradio
+# Fix for: TypeError: argument of type 'bool' is not iterable
+# and APIInfoParseError: Cannot parse schema True
+try:
+    import gradio_client.utils as client_utils
+
+    # Patch _json_schema_to_python_type to handle boolean schemas
+    _original_json_schema_to_python_type = client_utils._json_schema_to_python_type
+
+    def _patched_json_schema_to_python_type(schema, defs):
+        # Handle boolean schema (e.g., additionalProperties: true/false)
+        if schema is True:
+            return "Any"
+        if schema is False:
+            return "None"
+        return _original_json_schema_to_python_type(schema, defs)
+
+    client_utils._json_schema_to_python_type = _patched_json_schema_to_python_type
+except Exception as e:
+    print(f"Warning: Could not patch gradio_client: {e}")
+
 import gradio as gr
 
 # Import from the main module
@@ -166,18 +189,38 @@ def generate_poster(
         else city_dropdown
     )
 
+    # Detect if we are selecting an entire province
+    is_whole_province = False
+    if selected_country == "中国" and selected_location:
+        if selected_location.endswith("_WHOLE"):
+            is_whole_province = True
+            selected_location = selected_location.replace("_WHOLE", "")
+
     if not selected_location:
         return None, "❌ 请选择城市或区县名称"
 
     if not selected_country:
         return None, "❌ 请选择国家"
 
+    # For whole province, we might want to override the distance if it's too small
+    actual_distance = distance
+    if is_whole_province:
+        # A province is much larger than a city. Default 10km is way too small.
+        # We'll use a larger default or just trust the user if they've slid it up,
+        # but let's ensure it's at least 150km for a province.
+        if distance < 100000:
+            actual_distance = 200000 # 200km default for province
+            print(f"Whole province detected ({selected_location}). Increasing distance to {actual_distance}m")
+
     # Determine display names based on poster_lang
     lang_code = "en" if poster_lang == "English" else "cn"
 
     if selected_country == "中国" and lang_code == "cn":
+        if is_whole_province:
+            display_city = selected_location
+            display_country = "中国"
         # Hierarchical logic for China (Chinese language)
-        if district_dropdown and district_dropdown != city_dropdown:
+        elif district_dropdown and district_dropdown != city_dropdown:
             # Case 3 & 4: District selected
             display_city = district_dropdown
             if province == city_dropdown:
@@ -231,7 +274,10 @@ def generate_poster(
 
     # Generate output filename (using English/Slugified names)
     en_city = translate(selected_location, "en")
-    output_file = cmp.generate_output_filename(en_city, theme_name, output_format)
+    temp_dir = tempfile.gettempdir()
+    output_file = cmp.generate_output_filename(
+        en_city, theme_name, output_format, directory=temp_dir
+    )
 
     try:
         # Wrap the generator to yield status updates and final result
@@ -239,7 +285,7 @@ def generate_poster(
             display_city,  # Pass translated names for display
             display_country,
             coords,
-            distance,
+            actual_distance,
             output_file,
             output_format,
             width=width,
@@ -267,17 +313,17 @@ def generate_poster(
                 elif "Done" in status:
                     status_display = "完成！"
 
-            yield None, f"⏳ {status_display}"
+            yield None, f"⏳ {status_display}", None
 
         progress(1.0, desc="完成!")
 
-        yield output_file, f"✅ 海报生成成功！保存至: {output_file}"
+        yield output_file, f"✅ 海报生成成功！保存至: {output_file}", output_file
 
     except Exception as e:
         import traceback
 
         traceback.print_exc()
-        yield None, f"❌ 生成失败: {str(e)}"
+        yield None, f"❌ 生成失败: {str(e)}", None
 
 
 def update_provinces(country, lang="en"):
@@ -324,8 +370,9 @@ def create_interface():
     """Create and return the Gradio interface."""
 
     # Get initial data (Default English)
-    default_lang_code = "en"
-    default_lang_radio = "English"
+    # Get initial data (Default English)
+    default_lang_code = "cn"
+    default_lang_radio = "中文"
     countries = get_countries(default_lang_code)
     theme_choices = get_theme_choices(default_lang_code)
 
@@ -343,6 +390,34 @@ def create_interface():
 
     with gr.Blocks(
         title="城市地图海报生成器",
+        theme=gr.themes.Default(),
+        css="""
+        .header-title {
+            text-align: center;
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 0.5em;
+            background: linear-gradient(135deg, #FF8C00 0%, #FFA500 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .header-subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 1.5em;
+        }
+        .section-title {
+            font-weight: 600;
+            font-size: 1.1em;
+            margin-bottom: 0.5em;
+            color: #333;
+        }
+        .output-image {
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        """,
     ) as demo:
         # Header
         gr.HTML("""
@@ -350,11 +425,13 @@ def create_interface():
             <div class="header-subtitle">选择任意城市，自定义主题风格，生成精美地图海报</div>
             
             <div style="max-width: 800px; margin: 0 auto 20px auto; padding: 12px; background: #fff5f5; border: 1px solid #feb2b2; border-radius: 8px; text-align: left; font-size: 13px; line-height: 1.6; color: #c53030;">
-                <b>⚠️ 注意：</b><br>
-                • <b>特大城市</b>（如北京）：中心定位可能不准。<br>
-                • <b>小城市</b>：由于 OpenStreetMap 数据缺失，部分图层（如公园/水域）可能无法显示。<br>
-                • <b>生成速度</b>：使用国外服务器数据且渲染逻辑较基础，下载和生成速度可能较慢。<br>
-                • <b>数据来源</b>：© OpenStreetMap contributors
+                <b>⚠️ 注意!</b><br>
+                • <b>特大城市</b>（如北京）: 当城市面积过大时，中心定位可能不准。<br>
+                • <b>省级行政区生成超级慢！</b>: 正在优化中。<br>
+                • <b>地点中英文不完善</b> : 由于地点中英文翻译数据量过大，未能显示完善。<br>
+                • <b>小城市</b> : 由于 OpenStreetMap 数据缺失，部分图层（如公园/水域）可能无法显示。<br>
+                • <b>生成速度</b> : 国外地点使用国外服务器数据且渲染逻辑较基础，下载和生成速度可能较慢。<br>
+                • <b>数据来源</b> : © OpenStreetMap contributors
             </div>
         """)
 
@@ -365,8 +442,8 @@ def create_interface():
                 gr.HTML('<div class="section-title">📍 城市选择</div>')
 
                 lang_radio = gr.Radio(
-                    choices=["English", "Chinese"],
-                    value="English",
+                    choices=["中文", "English"],
+                    value="中文",
                     label="海报语言",
                     info="选择海报及界面的显示语言",
                 )
@@ -482,6 +559,7 @@ def create_interface():
                 output_status = gr.Textbox(label="状态", interactive=False)
 
                 download_btn = gr.DownloadButton(label="📥 下载海报", visible=False)
+                poster_state = gr.State()
 
         # --- Event Handlers ---
 
@@ -534,20 +612,60 @@ def create_interface():
             new_layer_values = [target_map[k] for k in current_keys if k in target_map]
 
             return (
-                gr.update(choices=new_countries, value=current_country),
-                gr.update(choices=new_provinces, value=current_province),
-                gr.update(choices=new_cities, value=current_city),
+                gr.update(
+                    choices=new_countries,
+                    value=current_country,
+                    label="Select Country" if lang == "English" else "选择国家",
+                ),
+                gr.update(
+                    choices=new_provinces,
+                    value=current_province,
+                    label="Select Province/State" if lang == "English" else "选择省份/州",
+                ),
+                gr.update(
+                    choices=new_cities,
+                    value=current_city,
+                    label="Select City" if lang == "English" else "选择城市",
+                ),
                 gr.update(
                     choices=new_districts,
                     value=current_city if current_city else None,
                     visible=(current_country == "中国"),
+                    label="Select District" if lang == "English" else "选择区县",
                 ),
-                gr.update(choices=new_theme_choices),
+                gr.update(
+                    choices=new_theme_choices,
+                    label="Select Theme" if lang == "English" else "选择主题",
+                ),
                 new_preview,
                 gr.update(
                     choices=new_layer_choices,
                     value=new_layer_values,
                     label="Layers" if lang == "English" else "图层显示",
+                ),
+                gr.update(
+                    label="Map Range (m)" if lang == "English" else "地图范围 (米)",
+                    info="4000-6000: Small | 8000-12000: Medium | 15000+: Large"
+                    if lang == "English"
+                    else "4000-6000: 小城区 | 8000-12000: 中等城市 | 15000+: 大都市 (范围越大生成越慢)",
+                ),
+                gr.update(label="Width (inch)" if lang == "English" else "宽度 (英寸)"),
+                gr.update(label="Height (inch)" if lang == "English" else "高度 (英寸)"),
+                gr.update(
+                    label="Format" if lang == "English" else "输出格式",
+                    info="PNG: Print | SVG: Vector | PDF: Doc"
+                    if lang == "English"
+                    else "PNG: 适合打印 | SVG: 矢量图 | PDF: 文档",
+                ),
+                gr.update(
+                    label="No Crop (Keep Margins)" if lang == "English" else "保留边距 (不裁剪)",
+                    info="Keep background margins" if lang == "English" else "勾选后保留海报边缘背景",
+                ),
+                gr.update(
+                    value="🚀 Generate Poster" if lang == "English" else "🚀 生成海报"
+                ),
+                gr.update(
+                    label="📥 Download Poster" if lang == "English" else "📥 下载海报"
                 ),
             )
 
@@ -569,6 +687,13 @@ def create_interface():
                 theme_dropdown,
                 theme_preview,
                 layers_checkbox,
+                distance_slider,
+                width_input,
+                height_input,
+                format_radio,
+                no_crop_checkbox,
+                generate_btn,
+                download_btn,
             ],
         )
 
@@ -627,10 +752,10 @@ def create_interface():
                 lang_radio,
                 layers_checkbox,
             ],
-            outputs=[output_image, output_status],
+            outputs=[output_image, output_status, poster_state],
         ).then(
             fn=on_generate_complete,
-            inputs=[output_image, output_status],
+            inputs=[poster_state, output_status],
             outputs=[output_image, output_status, download_btn],
         )
 
@@ -648,37 +773,4 @@ def create_interface():
 # --- Main Entry ---
 if __name__ == "__main__":
     demo = create_interface()
-    demo.launch(
-        server_name="0.0.0.0",
-        server_port=7860,
-        share=False,
-        show_error=True,
-        theme=gr.themes.Default(),
-        css="""
-        .header-title {
-            text-align: center;
-            font-size: 2em;
-            font-weight: bold;
-            margin-bottom: 0.5em;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        .header-subtitle {
-            text-align: center;
-            color: #666;
-            margin-bottom: 1.5em;
-        }
-        .section-title {
-            font-weight: 600;
-            font-size: 1.1em;
-            margin-bottom: 0.5em;
-            color: #333;
-        }
-        .output-image {
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        """,
-    )
+    demo.launch(server_name="0.0.0.0", server_port=7860, ssr_mode=False)

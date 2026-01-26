@@ -575,6 +575,15 @@ CN_TO_EN = {
     "香港": "Hong Kong",
     "澳门": "Macau",
     "台湾": "Taiwan",
+    # Japanese Regions
+    "関東": "Kanto",
+    "関西": "Kansai",
+    "中部": "Chubu",
+    "北海道": "Hokkaido",
+    "九州": "Kyushu",
+    "東北": "Tohoku",
+    "四国": "Shikoku",
+    "沖縄": "Okinawa",
     # Chinese Cities (CN -> EN)
     "广州": "Guangzhou",
     "深圳": "Shenzhen",
@@ -810,6 +819,126 @@ EN_TO_CN = {
     "Shenzhen": "深圳",
     "Beijing": "北京",
     "Shanghai": "上海",
+    # US States
+    "California": "加利福尼亚州",
+    "New York": "纽约州",
+    "Texas": "得克萨斯州",
+    "Florida": "佛罗里达州",
+    "Illinois": "伊利诺伊州",
+    "Pennsylvania": "宾夕法尼亚州",
+    "Arizona": "亚利桑那州",
+    "Nevada": "内华达州",
+    "Washington": "华盛顿州",
+    "Massachusetts": "马萨诸塞州",
+    "Colorado": "科罗拉多州",
+    "Georgia": "佐治亚州",
+    "North Carolina": "北卡罗来纳州",
+    "Michigan": "密歇根州",
+    "Oregon": "俄勒冈州",
+    "District of Columbia": "华盛顿哥伦比亚特区",
+    "Hawaii": "夏威夷州",
+    # Major Cities
+    "Los Angeles": "洛杉矶",
+    "San Francisco": "旧金山",
+    "San Diego": "圣地亚哥",
+    "San Jose": "圣何塞",
+    "Sacramento": "萨克拉门托",
+    "Oakland": "奥克兰",
+    "Fresno": "弗雷斯诺",
+    "Buffalo": "布法罗",
+    "Rochester": "罗切斯特",
+    "Albany": "奥尔巴尼",
+    "Syracuse": "雪城",
+    "Houston": "休斯敦",
+    "Dallas": "达拉斯",
+    "Austin": "奥斯汀",
+    "San Antonio": "圣安东尼奥",
+    "Fort Worth": "沃思堡",
+    "El Paso": "埃尔帕索",
+    "Miami": "迈阿密",
+    "Orlando": "奥兰多",
+    "Tampa": "坦帕",
+    "Jacksonville": "杰克逊维尔",
+    "Fort Lauderdale": "堡劳德代尔",
+    "Chicago": "芝加哥",
+    "Aurora": "奥罗拉",
+    "Philadelphia": "费城",
+    "Pittsburgh": "匹兹堡",
+    "Harrisburg": "哈里斯堡",
+    "Phoenix": "菲尼克斯",
+    "Tucson": "图森",
+    "Las Vegas": "拉斯维加斯",
+    "Reno": "里诺",
+    "Seattle": "西雅图",
+    "Tacoma": "塔科马",
+    "Spokane": "斯波坎",
+    "Boston": "波士顿",
+    "Denver": "丹佛",
+    "Atlanta": "亚特兰大",
+    "Detroit": "底特律",
+    "Portland": "波特兰",
+    "Osaka": "大阪",
+    "Kyoto": "京都",
+    "Kobe": "神户",
+    "Nagoya": "名古屋",
+    "Sapporo": "札幌",
+    "Fukuoka": "福冈",
+    "Hiroshima": "广岛",
+    "Liverpool": "利物浦",
+    "Manchester": "曼彻斯特",
+    "Birmingham": "伯明翰",
+    "Leeds": "利兹",
+    "Edinburgh": "爱丁堡",
+    "Glasgow": "格拉斯哥",
+    "Marseille": "马赛",
+    "Lyon": "里昂",
+    "Nice": "尼斯",
+    "Berlin": "柏林",
+    "Munich": "慕尼黑",
+    "Hamburg": "汉堡",
+    "Frankfurt": "法兰克福",
+    "Rome": "罗马",
+    "Milan": "米兰",
+    "Venice": "威尼斯",
+    "Florence": "佛罗伦萨",
+    "Naples": "那不勒斯",
+    "Madrid": "马德里",
+    "Barcelona": "巴塞罗那",
+    "Seville": "塞维利亚",
+    "Sydney": "悉尼",
+    "Melbourne": "墨尔本",
+    "Brisbane": "布里斯班",
+    "Perth": "珀斯",
+    "Toronto": "多伦多",
+    "Montreal": "蒙特利尔",
+    "Vancouver": "温哥华",
+    "Seoul": "首尔",
+    "Busan": "釜山",
+    "Mumbai": "孟买",
+    "New Delhi": "新德里",
+    "Bangalore": "班加罗尔",
+    "Moscow": "莫斯科",
+    "Saint Petersburg": "圣彼得堡",
+    "Sao Paulo": "圣保罗",
+    "Rio de Janeiro": "里约热内卢",
+    "Mexico City": "墨西哥城",
+    "Amsterdam": "阿姆斯特丹",
+    "Brussels": "布鲁塞尔",
+    "Zurich": "苏黎世",
+    "Vienna": "维也纳",
+    "Lisbon": "里斯本",
+    "Athens": "雅典",
+    "Istanbul": "伊斯坦布尔",
+    "Dubai": "迪拜",
+    "Bangkok": "曼谷",
+    "Hanoi": "河内",
+    "Ho Chi Minh City": "胡志明市",
+    "Jakarta": "雅加达",
+    "Kuala Lumpur": "吉隆坡",
+    "Manila": "马尼拉",
+    "Cairo": "开罗",
+    "Johannesburg": "约翰内斯堡",
+    "Cape Town": "开普敦",
     # Theme Names
     "Feature-Based Shading": "特征着色",
     "Japanese Ink": "日式水墨",
@@ -942,7 +1071,19 @@ def translate(text, target_lang="en"):
 
     if target_lang == "en":
         # If text is already in CN_TO_EN keys (Chinese), return the English value
-        return CN_TO_EN.get(text, text)
+        res = CN_TO_EN.get(text)
+        if res:
+            return res
+        
+        # Try stripping suffixes
+        suffixes = ["市", "省", "自治区", "特别行政区", "壮族自治区", "回族自治区", "维吾尔自治区", "地区", "盟", "自治州"]
+        for suffix in suffixes:
+            if text.endswith(suffix):
+                stripped = text[: -len(suffix)]
+                res = CN_TO_EN.get(stripped)
+                if res:
+                    return res
+        return text
 
     if target_lang == "cn":
         # If text is in EN_TO_CN keys (English), return the Chinese value
@@ -1007,43 +1148,62 @@ def get_provinces(country_name, lang="en"):
 def get_cities(country_name, province_name, lang="en"):
     """Return list of (Display, Key) tuples for cities."""
     country_key = get_country_key(country_name)
+    all_choices = []
+    
+    # Add "Whole Province" option for China
+    if country_key == "中国":
+        whole_province_display = "整个省" if lang == "cn" else "Whole Province"
+        all_choices.append((whole_province_display, province_name + "_WHOLE"))
 
+    # Try local China GeoJSON data (info.json)
     if country_key == "中国":
         p_adcode = get_china_adcode(province_name)
         if p_adcode:
             info = _load_china_info()
             p_entry = info.get(str(p_adcode))
             if p_entry:
-                choices = []
-                for c in p_entry.get("children", []):
-                    name = c["name"]
-                    display = translate(name, lang)
-                    choices.append((display, name))
-                # Add the province itself if it's a municipality?
-                # info.json treats municipalities as provinces with districts as children.
-                # If children level is 'district', then the 'cities' list should be just [province_name]
+                # For municipalities, return [Whole Province, Municipality Name]
                 if (
                     p_entry.get("children")
                     and p_entry["children"][0].get("level") == "district"
                 ):
-                    return [(translate(province_name, lang), province_name)]
-                return sorted(choices, key=lambda x: x[0])
+                    all_choices.append((translate(province_name, lang), province_name))
+                    return all_choices
 
+                for c in p_entry.get("children", []):
+                    name = c["name"]
+                    display = translate(name, lang)
+                    all_choices.append((display, name))
+                
+                # If we found cities in info.json, we return them (plus Whole Province)
+                if len(all_choices) > 1:
+                    # Keep "Whole Province" at top, then sorted cities
+                    return [all_choices[0]] + sorted(all_choices[1:], key=lambda x: x[0])
+
+    # Fallback to CITIES dictionary
     province_key = province_name
     if country_key in CITIES:
-        if province_name not in CITIES[country_key]:
+        if province_key not in CITIES[country_key]:
             for p_key in CITIES[country_key].keys():
-                if translate(p_key, lang) == province_name:
+                transl_p = translate(p_key, lang)
+                if (transl_p == province_key or 
+                    (country_key == "中国" and (transl_p in province_key or province_key in transl_p))):
                     province_key = p_key
                     break
 
         if province_key in CITIES[country_key]:
-            choices = []
+            start_idx = len(all_choices)
             for c_name in CITIES[country_key][province_key]:
                 display = translate(c_name, lang)
-                choices.append((display, c_name))
-            return sorted(choices, key=lambda x: x[0])
-    return []
+                all_choices.append((display, c_name))
+            
+            if country_key == "中国":
+                # With Whole Province at top
+                return [all_choices[0]] + sorted(all_choices[1:], key=lambda x: x[0])
+            else:
+                return sorted(all_choices, key=lambda x: x[0])
+
+    return all_choices
 
 
 def get_districts(country_name, province_name, city_name, lang="en"):
