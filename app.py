@@ -209,8 +209,10 @@ def generate_poster(
         # We'll use a larger default or just trust the user if they've slid it up,
         # but let's ensure it's at least 150km for a province.
         if distance < 100000:
-            actual_distance = 200000 # 200km default for province
-            print(f"Whole province detected ({selected_location}). Increasing distance to {actual_distance}m")
+            actual_distance = 200000  # 200km default for province
+            print(
+                f"Whole province detected ({selected_location}). Increasing distance to {actual_distance}m"
+            )
 
     # Determine display names based on poster_lang
     lang_code = "en" if poster_lang == "English" else "cn"
@@ -369,8 +371,7 @@ def on_theme_change(theme_name, lang="en"):
 def create_interface():
     """Create and return the Gradio interface."""
 
-    # Get initial data (Default English)
-    # Get initial data (Default English)
+    # Get initial data (Default Chinese)
     default_lang_code = "cn"
     default_lang_radio = "中文"
     countries = get_countries(default_lang_code)
@@ -620,7 +621,9 @@ def create_interface():
                 gr.update(
                     choices=new_provinces,
                     value=current_province,
-                    label="Select Province/State" if lang == "English" else "选择省份/州",
+                    label="Select Province/State"
+                    if lang == "English"
+                    else "选择省份/州",
                 ),
                 gr.update(
                     choices=new_cities,
@@ -650,7 +653,9 @@ def create_interface():
                     else "4000-6000: 小城区 | 8000-12000: 中等城市 | 15000+: 大都市 (范围越大生成越慢)",
                 ),
                 gr.update(label="Width (inch)" if lang == "English" else "宽度 (英寸)"),
-                gr.update(label="Height (inch)" if lang == "English" else "高度 (英寸)"),
+                gr.update(
+                    label="Height (inch)" if lang == "English" else "高度 (英寸)"
+                ),
                 gr.update(
                     label="Format" if lang == "English" else "输出格式",
                     info="PNG: Print | SVG: Vector | PDF: Doc"
@@ -658,8 +663,12 @@ def create_interface():
                     else "PNG: 适合打印 | SVG: 矢量图 | PDF: 文档",
                 ),
                 gr.update(
-                    label="No Crop (Keep Margins)" if lang == "English" else "保留边距 (不裁剪)",
-                    info="Keep background margins" if lang == "English" else "勾选后保留海报边缘背景",
+                    label="No Crop (Keep Margins)"
+                    if lang == "English"
+                    else "保留边距 (不裁剪)",
+                    info="Keep background margins"
+                    if lang == "English"
+                    else "勾选后保留海报边缘背景",
                 ),
                 gr.update(
                     value="🚀 Generate Poster" if lang == "English" else "🚀 生成海报"
