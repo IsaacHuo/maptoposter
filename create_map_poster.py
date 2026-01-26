@@ -309,6 +309,7 @@ def create_poster(
     width=12,
     height=16,
     no_crop=False,
+    show_text=True,
     show_motorway=True,
     show_primary=True,
     show_secondary=True,
@@ -331,7 +332,7 @@ def create_poster(
     # Detect if we are doing a "Whole Province" (large area)
     # If the bounding box is very large, we should limit the road types to avoid timeouts
     is_large_area = False
-    if dist > 50000: # Over 50km half-width is likely a province or large region
+    if dist > 50000:  # Over 50km half-width is likely a province or large region
         is_large_area = True
         print(f"Large area detected (dist={dist}m). Fetching major roads only.")
         yield "Large region detected. Fetching major roads only to avoid timeout..."
@@ -342,16 +343,14 @@ def create_poster(
     delta_lat = dist_ns / 111320.0
     delta_lon = dist_ew / (111320.0 * math.cos(math.radians(lat)))
 
-    north, south = lat + delta_lat, lat - delta_lat
-    west, east = lon - delta_lon, lon + delta_lon
+    north, south = max(lat + delta_lat, lat - delta_lat), min(lat + delta_lat, lat - delta_lat)
+    west, east = min(lon - delta_lon, lon + delta_lon), max(lon - delta_lon, lon + delta_lon)
 
     bbox = (west, south, east, north)
-    
+
     if is_large_area:
         # Use custom filter for major roads only
-        custom_filter = (
-            '["highway"~"motorway|trunk|primary|secondary"]'
-        )
+        custom_filter = '["highway"~"motorway|trunk|primary|secondary"]'
         yield "Downloading major road network..."
         G = ox.graph_from_bbox(bbox, custom_filter=custom_filter, network_type="drive")
     else:
@@ -397,9 +396,13 @@ def create_poster(
                     water.geometry.type.isin(["Polygon", "MultiPolygon"])
                 ]
                 if not water_polys.empty:
+                    # Fix invalid geometries if any, then simplify
+                    water_polys.geometry = water_polys.geometry.apply(lambda g: g.buffer(0) if not g.is_valid else g)
                     water_polys.geometry = water_polys.geometry.simplify(
                         tolerance=0.00001, preserve_topology=True
                     )
+                    # Filter out any that became empty after simplification
+                    water_polys = water_polys[~water_polys.geometry.is_empty]
 
                 # Water Lines (Rivers, Streams represented as lines)
                 water_lines = water[
@@ -428,10 +431,16 @@ def create_poster(
             parks = features[park_mask]
             if not parks.empty:
                 parks = parks[parks.geometry.type.isin(["Polygon", "MultiPolygon"])]
-                # Simplify geometries
-                parks.geometry = parks.geometry.simplify(
-                    tolerance=0.00001, preserve_topology=True
-                )
+                # Fix invalid geometries, then simplify
+                if not parks.empty:
+                    parks.geometry = parks.geometry.apply(lambda g: g.buffer(0) if not g.is_valid else g)
+                    parks.geometry = parks.geometry.simplify(
+                        tolerance=0.00001, preserve_topology=True
+                    )
+                    # Filter empty
+                    parks = parks[~parks.geometry.is_empty]
+                else:
+                    parks = None
             else:
                 parks = None  # No park features found
         else:
@@ -491,6 +500,12 @@ def create_poster(
         show=False,
         close=False,
     )
+
+    # Enforce equal aspect ratio to prevent compression/distortion
+    ax.set_aspect("equal")
+    # Set explicit limits based on calculated bbox to match figure aspect ratio
+    ax.set_xlim(west, east)
+    ax.set_ylim(south, north)
 
     # Layer 3: Gradients (Top and Bottom)
     create_gradient_fade(ax, THEME["gradient_color"], location="bottom", zorder=10)
@@ -552,57 +567,67 @@ def create_poster(
     font_sub.set_size(22)
 
     # --- BOTTOM TEXT ---
-    ax.text(
-        0.5,
-        0.14,
-        display_city,
-        transform=ax.transAxes,
-        color=THEME["text"],
-        ha="center",
-        fontproperties=font_main,
-        zorder=11,
-    )
+    if show_text:
+        # Title
+        if display_city:
+            ax.text(
+                0.5,
+                0.14,
+                display_city,
+                transform=ax.transAxes,
+                color=THEME["text"],
+                ha="center",
+                fontproperties=font_main,
+                zorder=11,
+            )
 
-    ax.text(
-        0.5,
-        0.10,
-        display_country,
-        transform=ax.transAxes,
-        color=THEME["text"],
-        ha="center",
-        fontproperties=font_sub,
-        zorder=11,
-    )
+        # Subtitle
+        if display_country:
+            ax.text(
+                0.5,
+                0.10,
+                display_country,
+                transform=ax.transAxes,
+                color=THEME["text"],
+                ha="center",
+                fontproperties=font_sub,
+                zorder=11,
+            )
 
-    lat, lon = point
-    coords_text = (
-        f"{lat:.4f}° N / {lon:.4f}° E"
-        if lat >= 0
-        else f"{abs(lat):.4f}° S / {lon:.4f}° E"
-    )
-    if lon < 0:
-        coords_text = coords_text.replace("E", "W")
+        # Decorative separator line (only show if both exist)
+        if display_city and display_country:
+            ax.plot(
+                [0.4, 0.6],
+                [0.125, 0.125],
+                transform=ax.transAxes,
+                color=THEME["text"],
+                linewidth=1,
+                zorder=11,
+            )
 
-    ax.text(
-        0.5,
-        0.07,
-        coords_text,
-        transform=ax.transAxes,
-        color=THEME["text"],
-        alpha=0.7,
-        ha="center",
-        fontproperties=font_coords,
-        zorder=11,
-    )
+        # Coordinates (Third line, smaller)
+        # Only show if there is at least a title or subtitle, or if specifically desired
+        if display_city or display_country:
+            lat, lon = point
+            coords_text = (
+                f"{lat:.4f}° N / {lon:.4f}° E"
+                if lat >= 0
+                else f"{abs(lat):.4f}° S / {lon:.4f}° E"
+            )
+            if lon < 0:
+                coords_text = coords_text.replace("E", "W")
 
-    ax.plot(
-        [0.4, 0.6],
-        [0.125, 0.125],
-        transform=ax.transAxes,
-        color=THEME["text"],
-        linewidth=1,
-        zorder=11,
-    )
+            ax.text(
+                0.5,
+                0.07,
+                coords_text,
+                transform=ax.transAxes,
+                color=THEME["text"],
+                alpha=0.7,
+                ha="center",
+                fontproperties=font_coords,
+                zorder=11,
+            )
 
     # --- ATTRIBUTION (bottom right) ---
     attr_font = font_sub_base.copy()

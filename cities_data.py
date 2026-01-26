@@ -575,7 +575,7 @@ CN_TO_EN = {
     "香港": "Hong Kong",
     "澳门": "Macau",
     "台湾": "Taiwan",
-    # Japan Regions
+    # Japanese Regions
     "関東": "Kanto",
     "関西": "Kansai",
     "中部": "Chubu",
@@ -584,22 +584,6 @@ CN_TO_EN = {
     "東北": "Tohoku",
     "四国": "Shikoku",
     "沖縄": "Okinawa",
-    # Russia Regions
-    "Центральный": "Central",
-    "Северо-Западный": "Northwestern",
-    "Южный": "Southern",
-    "Приволжский": "Volga",
-    "Уральский": "Ural",
-    "Сибирский": "Siberian",
-    "Дальневосточный": "Far Eastern",
-    # Korea Regions
-    "서울특별시": "Seoul",
-    "부산광역시": "Busan",
-    "경기도": "Gyeonggi-do",
-    "대구광역시": "Daegu",
-    "대전광역시": "Daejeon",
-    "광주광역시": "Gwangju",
-    "제주특별자치도": "Jeju",
     # Chinese Cities (CN -> EN)
     "广州": "Guangzhou",
     "深圳": "Shenzhen",
@@ -835,10 +819,10 @@ EN_TO_CN = {
     "Shenzhen": "深圳",
     "Beijing": "北京",
     "Shanghai": "上海",
-    # USA States
+    # US States
     "California": "加利福尼亚州",
     "New York": "纽约州",
-    "Texas": "德克萨斯州",
+    "Texas": "得克萨斯州",
     "Florida": "佛罗里达州",
     "Illinois": "伊利诺伊州",
     "Pennsylvania": "宾夕法尼亚州",
@@ -853,7 +837,7 @@ EN_TO_CN = {
     "Oregon": "俄勒冈州",
     "District of Columbia": "华盛顿哥伦比亚特区",
     "Hawaii": "夏威夷州",
-    # USA Cities
+    # Major Cities
     "Los Angeles": "洛杉矶",
     "San Francisco": "旧金山",
     "San Diego": "圣地亚哥",
@@ -865,7 +849,7 @@ EN_TO_CN = {
     "Rochester": "罗切斯特",
     "Albany": "奥尔巴尼",
     "Syracuse": "雪城",
-    "Houston": "休斯顿",
+    "Houston": "休斯敦",
     "Dallas": "达拉斯",
     "Austin": "奥斯汀",
     "San Antonio": "圣安东尼奥",
@@ -875,7 +859,7 @@ EN_TO_CN = {
     "Orlando": "奥兰多",
     "Tampa": "坦帕",
     "Jacksonville": "杰克逊维尔",
-    "Fort Lauderdale": "劳德代尔堡",
+    "Fort Lauderdale": "堡劳德代尔",
     "Chicago": "芝加哥",
     "Aurora": "奥罗拉",
     "Philadelphia": "费城",
@@ -891,90 +875,50 @@ EN_TO_CN = {
     "Boston": "波士顿",
     "Denver": "丹佛",
     "Atlanta": "亚特兰大",
-    "Charlotte": "夏洛特",
     "Detroit": "底特律",
     "Portland": "波特兰",
-    "Honolulu": "火奴鲁鲁",
-    # UK
-    "England": "英格兰",
-    "Scotland": "苏格兰",
-    "Wales": "威尔士",
-    "Northern Ireland": "北爱尔兰",
-    "Manchester": "曼彻斯特",
-    "Birmingham": "伯明翰",
-    "Liverpool": "利物浦",
-    "Leeds": "利兹",
-    "Edinburgh": "爱丁堡",
-    "Glasgow": "格拉斯哥",
-    "Cardiff": "加的夫",
-    "Belfast": "贝尔法斯特",
-    # Japan
-    "Yokohama": "横滨",
-    "Kawasaki": "川崎",
-    "Saitama": "埼玉",
-    "Chiba": "千叶",
     "Osaka": "大阪",
     "Kyoto": "京都",
     "Kobe": "神户",
-    "Nara": "奈良",
     "Nagoya": "名古屋",
     "Sapporo": "札幌",
     "Fukuoka": "福冈",
     "Hiroshima": "广岛",
-    # France
-    "Île-de-France": "法兰西岛",
-    "Provence-Alpes-Côte d'Azur": "普罗旺斯-阿尔卑斯-蓝色海岸",
+    "Liverpool": "利物浦",
+    "Manchester": "曼彻斯特",
+    "Birmingham": "伯明翰",
+    "Leeds": "利兹",
+    "Edinburgh": "爱丁堡",
+    "Glasgow": "格拉斯哥",
     "Marseille": "马赛",
     "Lyon": "里昂",
     "Nice": "尼斯",
-    # Germany
-    "Bayern": "巴伐利亚",
     "Berlin": "柏林",
-    "Hamburg": "汉堡",
     "Munich": "慕尼黑",
+    "Hamburg": "汉堡",
     "Frankfurt": "法兰克福",
-    "Cologne": "科隆",
-    # Italy
-    "Lazio": "拉齐奥",
-    "Lombardia": "伦巴第",
     "Rome": "罗马",
     "Milan": "米兰",
     "Venice": "威尼斯",
     "Florence": "佛罗伦萨",
     "Naples": "那不勒斯",
-    # Spain
     "Madrid": "马德里",
     "Barcelona": "巴塞罗那",
     "Seville": "塞维利亚",
-    # Canada
-    "Ontario": "安大略省",
-    "British Columbia": "不列颠哥伦比亚省",
-    "Quebec": "魁北克省",
-    "Toronto": "多伦多",
-    "Vancouver": "温哥华",
-    "Montreal": "蒙特利尔",
-    "Ottawa": "渥太华",
-    # Australia
-    "New South Wales": "新南威尔士州",
-    "Victoria": "维多利亚州",
     "Sydney": "悉尼",
     "Melbourne": "墨尔本",
     "Brisbane": "布里斯班",
     "Perth": "珀斯",
-    # Russia
-    "Moscow": "莫斯科",
-    "Saint Petersburg": "圣彼得堡",
-    # Others
-    "Bangkok": "曼谷",
+    "Toronto": "多伦多",
+    "Montreal": "蒙特利尔",
+    "Vancouver": "温哥华",
     "Seoul": "首尔",
     "Busan": "釜山",
-    "Kuala Lumpur": "吉隆坡",
-    "Singapore": "新加坡",
-    "New Delhi": "新德里",
     "Mumbai": "孟买",
+    "New Delhi": "新德里",
     "Bangalore": "班加罗尔",
-    "Dubai": "迪拜",
-    "Cairo": "开罗",
+    "Moscow": "莫斯科",
+    "Saint Petersburg": "圣彼得堡",
     "Sao Paulo": "圣保罗",
     "Rio de Janeiro": "里约热内卢",
     "Mexico City": "墨西哥城",
@@ -985,10 +929,14 @@ EN_TO_CN = {
     "Lisbon": "里斯本",
     "Athens": "雅典",
     "Istanbul": "伊斯坦布尔",
+    "Dubai": "迪拜",
+    "Bangkok": "曼谷",
     "Hanoi": "河内",
     "Ho Chi Minh City": "胡志明市",
     "Jakarta": "雅加达",
+    "Kuala Lumpur": "吉隆坡",
     "Manila": "马尼拉",
+    "Cairo": "开罗",
     "Johannesburg": "约翰内斯堡",
     "Cape Town": "开普敦",
     # Theme Names
@@ -1096,19 +1044,25 @@ def get_manual_coordinates(name, parent_adcode=None):
 
 def get_china_adcode(name, parent_adcode=None):
     """Search for adcode by name in local China data."""
+    if not name:
+        return None
+    
+    # Strip convention-based suffixes
+    search_name = name.replace("_WHOLE", "")
+    
     info = _load_china_info()
     if not parent_adcode:
         # Check provinces
         china_entry = info.get("100000")
         if china_entry:
             for p in china_entry.get("children", []):
-                if p["name"] == name or p["name"].rstrip("省").rstrip("市") == name:
+                if p["name"] == search_name or p["name"].rstrip("省").rstrip("市") == search_name:
                     return p["adcode"]
     else:
         parent_entry = info.get(str(parent_adcode))
         if parent_entry:
             for child in parent_entry.get("children", []):
-                if child["name"] == name:
+                if child["name"] == search_name:
                     return child["adcode"]
     return None
 
@@ -1127,7 +1081,7 @@ def translate(text, target_lang="en"):
         if res:
             return res
         
-        # Try stripping common suffixes
+        # Try stripping suffixes
         suffixes = ["市", "省", "自治区", "特别行政区", "壮族自治区", "回族自治区", "维吾尔自治区", "地区", "盟", "自治州"]
         for suffix in suffixes:
             if text.endswith(suffix):
@@ -1261,7 +1215,7 @@ def get_cities(country_name, province_name, lang="en"):
 def get_districts(country_name, province_name, city_name, lang="en"):
     """Return list of (Display, Key) tuples for districts."""
     country_key = get_country_key(country_name)
-    if country_key != "中国":
+    if country_key != "中国" or not city_name or city_name.endswith("_WHOLE"):
         return []
 
     p_adcode = get_china_adcode(province_name)

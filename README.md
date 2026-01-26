@@ -1,3 +1,4 @@
+
 # 🌆 城市地图海报生成器 | City Map Poster Generator
 
 <p align="center">
@@ -16,7 +17,7 @@
 
 为全球任何城市生成精美、简约的地图海报。该项目基于 [originalankur/maptoposter](https://github.com/originalankur/maptoposter) 开发。
 
-> **🚀 在线体验**：[Hugging Face Space](https://huggingface.co/spaces/isaachwf/MapToPoster)（受限于服务器资源，生成速度很慢,暂时无法解决。。。）
+> **🚀 在线体验**：[Hugging Face Space](https://huggingface.co/spaces/isaachwf/MapToPoster)（受限于服务器资源，生成速度很慢。。。）
 
 <p align="center">
   <img src="posters/beijing_japanese_ink_20260121_211625.png" width="300">
@@ -77,13 +78,6 @@ uv run python app.py
 | 中国 | 香港 | ocean | <img src="posters/hong_kong_ocean_20260121_211146.png" width="200"> |
 | 中国 | 上海 | ocean | <img src="posters/shanghai_ocean_20260121_215944.png" width="200"> |
 
----
-
-如果你觉得这个项目对你有帮助，欢迎打赏两毛钱～太感谢啦～
-
-<p align="left">
-  <img src="public/IMG_2953.JPG" width="200" alt="Donate">
-</p>
 
 ---
 

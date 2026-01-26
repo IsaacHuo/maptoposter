@@ -149,6 +149,11 @@ def get_theme_preview_html(theme_name, lang="en"):
 
 
 def generate_poster(
+    location_mode,
+    custom_lat,
+    custom_lon,
+    custom_city_name,
+    custom_country_name,
     country_display,
     province,
     city_dropdown,
@@ -159,6 +164,7 @@ def generate_poster(
     height,
     output_format,
     no_crop,
+    show_text,
     poster_lang,
     layers_selection,
     progress=gr.Progress(),
@@ -176,101 +182,122 @@ def generate_poster(
     show_water = any(x in ["Water", "水域"] for x in layers_selection)
     show_parks = any(x in ["Parks", "公园"] for x in layers_selection)
 
-    # Parse country
-    # Since we now use (Display, Value) tuples where Value is the key,
-    # country_display is likely already the key. get_country_key remains for safety.
-    selected_country = get_country_key(country_display)
-
-    # Use dropdown selection
-    # If district is selected and isn't "整个城市", use its coordinates
-    selected_location = (
-        district_dropdown
-        if (district_dropdown and district_dropdown != city_dropdown)
-        else city_dropdown
-    )
-
-    # Detect if we are selecting an entire province
-    is_whole_province = False
-    if selected_country == "中国" and selected_location:
-        if selected_location.endswith("_WHOLE"):
-            is_whole_province = True
-            selected_location = selected_location.replace("_WHOLE", "")
-
-    if not selected_location:
-        return None, "❌ 请选择城市或区县名称"
-
-    if not selected_country:
-        return None, "❌ 请选择国家"
-
-    # For whole province, we might want to override the distance if it's too small
-    actual_distance = distance
-    if is_whole_province:
-        # A province is much larger than a city. Default 10km is way too small.
-        # We'll use a larger default or just trust the user if they've slid it up,
-        # but let's ensure it's at least 150km for a province.
-        if distance < 100000:
-            actual_distance = 200000  # 200km default for province
-            print(
-                f"Whole province detected ({selected_location}). Increasing distance to {actual_distance}m"
-            )
-
     # Determine display names based on poster_lang
     lang_code = "en" if poster_lang == "English" else "cn"
-
-    if selected_country == "中国" and lang_code == "cn":
-        if is_whole_province:
-            display_city = selected_location
-            display_country = "中国"
-        # Hierarchical logic for China (Chinese language)
-        elif district_dropdown and district_dropdown != city_dropdown:
-            # Case 3 & 4: District selected
-            display_city = district_dropdown
-            if province == city_dropdown:
-                # Case 3: District of Municipality
-                display_country = f"中国 {province}"
-            else:
-                # Case 4: District of Regular City
-                display_country = f"中国 {province} {city_dropdown}"
-        else:
-            # Case 1 & 2: City selected (or "Whole City")
-            display_city = city_dropdown
-            if province == city_dropdown:
-                # Case 1: Municipality
-                display_country = "中国"
-            else:
-                # Case 2: Regular City
-                display_country = f"中国 {province}"
-    else:
-        # Standard logic for International or English posters
-        display_city = translate(selected_location, lang_code)
-        display_country = translate(selected_country, lang_code)
+    actual_distance = distance
+    display_city = ""
+    display_country = ""
+    coords = None
 
     progress(0.1, desc="正在加载主题...")
-
     # Load theme
     cmp.THEME = cmp.load_theme(theme_name)
 
-    progress(0.2, desc="正在获取坐标...")
+    if location_mode == "自定义坐标" or location_mode == "Custom Coordinates":
+        lat_val = float(custom_lat)
+        lon_val = float(custom_lon)
+        
+        # Basic validation: Latitude must be between -90 and 90
+        if lat_val < -90 or lat_val > 90:
+            return None, f"❌ 纬度超出范围 (-90 到 90)。你是否填反了经纬度？(当前填入: {lat_val})"
 
-    try:
-        # We search coordinates using the selection
-        # CMP might need the "original" names if OSM behaves better with them
-        # For China, "广州" is better than "Guangzhou" for geopy sometimes, but geopy is usually good.
-        # Let's ensure we use the 'original' internal key if possible for best OSM matching
-        # However, for cities, we don't have a strict key map like for countries.
-        # We can try to translate to CN if it's a Chinese city.
-        search_city = selected_location
-        search_country = selected_country
-        # Use city as parent if searching for a district, otherwise use province
-        search_parent = (
-            city_dropdown
+        coords = (lat_val, lon_val)
+        display_city = custom_city_name if custom_city_name else ""
+        display_country = custom_country_name if custom_country_name else ""
+
+        # Determine output filename component
+        selected_location = display_city
+
+    else:
+        # Standard Dropdown Logic
+        # Parse country
+        # Since we now use (Display, Value) tuples where Value is the key,
+        # country_display is likely already the key. get_country_key remains for safety.
+        selected_country = get_country_key(country_display)
+
+        # Use dropdown selection
+        # If district is selected and isn't "整个城市", use its coordinates
+        selected_location = (
+            district_dropdown
             if (district_dropdown and district_dropdown != city_dropdown)
-            else province
+            else city_dropdown
         )
 
-        coords = cmp.get_coordinates(search_city, search_country, parent=search_parent)
-    except Exception as e:
-        return None, f"❌ 无法找到城市坐标: {str(e)}"
+        # Detect if we are selecting an entire province
+        is_whole_province = False
+        if selected_country == "中国" and selected_location:
+            if selected_location.endswith("_WHOLE"):
+                is_whole_province = True
+                selected_location = selected_location.replace("_WHOLE", "")
+
+        if not selected_location:
+            return None, "❌ 请选择城市或区县名称"
+
+        if not selected_country:
+            return None, "❌ 请选择国家"
+
+        # For whole province, we might want to override the distance if it's too small
+        if is_whole_province:
+            # A province is much larger than a city. Default 10km is way too small.
+            # We'll use a larger default or just trust the user if they've slid it up,
+            # but let's ensure it's at least 150km for a province.
+            if distance < 100000:
+                actual_distance = 200000  # 200km default for province
+                print(
+                    f"Whole province detected ({selected_location}). Increasing distance to {actual_distance}m"
+                )
+
+        if selected_country == "中国" and lang_code == "cn":
+            if is_whole_province:
+                display_city = selected_location
+                display_country = "中国"
+            # Hierarchical logic for China (Chinese language)
+            elif district_dropdown and district_dropdown != city_dropdown:
+                # Case 3 & 4: District selected
+                display_city = district_dropdown
+                if province == city_dropdown:
+                    # Case 3: District of Municipality
+                    display_country = f"中国 {province}"
+                else:
+                    # Case 4: District of Regular City
+                    display_country = f"中国 {province} {city_dropdown}"
+            else:
+                # Case 1 & 2: City selected (or "Whole City")
+                display_city = city_dropdown
+                if province == city_dropdown:
+                    # Case 1: Municipality
+                    display_country = "中国"
+                else:
+                    # Case 2: Regular City
+                    display_country = f"中国 {province}"
+        else:
+            # Standard logic for International or English posters
+            display_city = translate(selected_location, lang_code)
+            display_country = translate(selected_country, lang_code)
+
+        progress(0.2, desc="正在获取坐标...")
+
+        try:
+            # We search coordinates using the selection
+            # CMP might need the "original" names if OSM behaves better with them
+            # For China, "广州" is better than "Guangzhou" for geopy sometimes, but geopy is usually good.
+            # Let's ensure we use the 'original' internal key if possible for best OSM matching
+            # However, for cities, we don't have a strict key map like for countries.
+            # We can try to translate to CN if it's a Chinese city.
+            search_city = selected_location
+            search_country = selected_country
+            # Use city as parent if searching for a district, otherwise use province
+            search_parent = (
+                city_dropdown
+                if (district_dropdown and district_dropdown != city_dropdown)
+                else province
+            )
+
+            coords = cmp.get_coordinates(
+                search_city, search_country, parent=search_parent
+            )
+        except Exception as e:
+            return None, f"❌ 无法找到城市坐标: {str(e)}"
 
     progress(0.3, desc="正在生成海报...")
 
@@ -293,6 +320,7 @@ def generate_poster(
             width=width,
             height=height,
             no_crop=no_crop,
+            show_text=show_text,
             show_motorway=show_motorway,
             show_primary=show_primary,
             show_secondary=show_secondary,
@@ -352,7 +380,7 @@ def update_cities(country, province, lang="en"):
 
 def update_districts(country, province, city, lang="en"):
     """Update district dropdown based on city selection."""
-    if country != "中国":
+    if country != "中国" or not city or city.endswith("_WHOLE"):
         return gr.update(choices=[], value=None, visible=False)
 
     lang_code = "en" if lang == "English" else "cn"
@@ -371,7 +399,8 @@ def on_theme_change(theme_name, lang="en"):
 def create_interface():
     """Create and return the Gradio interface."""
 
-    # Get initial data (Default Chinese)
+    # Get initial data (Default English)
+    # Get initial data (Default English)
     default_lang_code = "cn"
     default_lang_radio = "中文"
     countries = get_countries(default_lang_code)
@@ -386,6 +415,20 @@ def create_interface():
         else []
     )
     default_city_key = default_cities[0][1] if default_cities else None
+    
+    # Handle district initialization carefully to avoid "Value not in choices" error
+    default_districts = (
+        get_districts(
+            default_country_key,
+            default_province_key,
+            default_city_key,
+            default_lang_code,
+        )
+        if default_city_key
+        else []
+    )
+    default_district_key = default_districts[0][1] if default_districts else None
+    
     default_theme = theme_choices[0][1] if theme_choices else "feature_based"
     default_theme = theme_choices[0][1] if theme_choices else "feature_based"
 
@@ -449,39 +492,65 @@ def create_interface():
                     info="选择海报及界面的显示语言",
                 )
 
-                country_dropdown = gr.Dropdown(
-                    choices=countries,
-                    value=default_country_key,
-                    label="选择国家",
-                    interactive=True,
+                location_mode = gr.Radio(
+                    choices=["城市选择", "自定义坐标"],
+                    value="城市选择",
+                    label="定位方式",
+                    info="选择通过列表选择城市或输入自定义经纬度",
                 )
 
-                province_dropdown = gr.Dropdown(
-                    choices=default_provinces,
-                    value=default_province_key,
-                    label="选择省份/州",
-                    interactive=True,
-                )
+                with gr.Group(visible=True) as city_selection_group:
+                    country_dropdown = gr.Dropdown(
+                        choices=countries,
+                        value=default_country_key,
+                        label="选择国家",
+                        interactive=True,
+                    )
 
-                city_dropdown = gr.Dropdown(
-                    choices=default_cities,
-                    value=default_city_key,
-                    label="选择城市",
-                    interactive=True,
-                )
+                    province_dropdown = gr.Dropdown(
+                        choices=default_provinces,
+                        value=default_province_key,
+                        label="选择省份/州",
+                        interactive=True,
+                    )
 
-                district_dropdown = gr.Dropdown(
-                    choices=get_districts(
-                        default_country_key,
-                        default_province_key,
-                        default_city_key,
-                        default_lang_code,
-                    ),
-                    value=default_city_key,
-                    label="选择区县",
-                    interactive=True,
-                    visible=(default_country_key == "中国"),
-                )
+                    city_dropdown = gr.Dropdown(
+                        choices=default_cities,
+                        value=default_city_key,
+                        label="选择城市",
+                        interactive=True,
+                    )
+
+                    district_dropdown = gr.Dropdown(
+                        choices=default_districts,
+                        value=default_district_key,
+                        label="选择区县",
+                        interactive=True,
+                        visible=(default_country_key == "中国" and default_district_key is not None),
+                    )
+
+                with gr.Group(visible=False) as custom_coords_group:
+                    custom_coords_info = gr.Markdown(
+                        "💡 **填写指南**：\n"
+                        "- **纬度 (Latitude)**: 南北向坐标，范围 -90 至 90 (中国约 18~53)。\n"
+                        "- **经度 (Longitude)**: 东西向坐标，范围 -180 至 180 (中国约 73~135)。\n\n"
+                        "您可以访问 [坐标拾取系统](https://map.jiqrxx.com/jingweidu/) 获取精确数值。"
+                    )
+                    with gr.Row():
+                        custom_lat = gr.Number(
+                            label="纬度 (Latitude)", value=None, precision=6
+                        )
+                        custom_lon = gr.Number(
+                            label="经度 (Longitude)", value=None, precision=6
+                        )
+                    custom_city_name = gr.Textbox(
+                        label="主标题 (Main Title)", placeholder="如: Shanghai 或 '我们的家'"
+                    )
+                    custom_country_name = gr.Textbox(
+                        label="副标题 (Subtitle)",
+                        placeholder="如: China 或 '2024.10.20'",
+                        value="",
+                    )
 
                 gr.HTML("<hr style='margin: 20px 0; border-color: #eee;'>")
 
@@ -535,6 +604,12 @@ def create_interface():
                     info="勾选后保留海报边缘背景",
                 )
 
+                show_text_checkbox = gr.Checkbox(
+                    value=True,
+                    label="显示文字",
+                    info="在海报上显示城市名和经纬度",
+                )
+
                 layers_checkbox = gr.CheckboxGroup(
                     choices=LAYERS_EN,
                     value=LAYERS_EN,
@@ -570,6 +645,7 @@ def create_interface():
             current_country,
             current_province,
             current_city,
+            current_district,
             current_theme,
             current_layers,
         ):
@@ -590,6 +666,14 @@ def create_interface():
                 if current_city
                 else []
             )
+            
+            # Ensure district value is valid for new choices
+            valid_district = None
+            if new_districts:
+                if any(v == current_district for d, v in new_districts):
+                    valid_district = current_district
+                else:
+                    valid_district = new_districts[0][1]
 
             # Themes
             new_theme_choices = get_theme_choices(lang_code)
@@ -632,8 +716,8 @@ def create_interface():
                 ),
                 gr.update(
                     choices=new_districts,
-                    value=current_city if current_city else None,
-                    visible=(current_country == "中国"),
+                    value=valid_district,
+                    visible=(current_country == "中国" and valid_district is not None),
                     label="Select District" if lang == "English" else "选择区县",
                 ),
                 gr.update(
@@ -671,11 +755,36 @@ def create_interface():
                     else "勾选后保留海报边缘背景",
                 ),
                 gr.update(
+                    label="Show Text" if lang == "English" else "显示文字",
+                    info="Show city name and coordinates on poster"
+                    if lang == "English"
+                    else "在海报上显示城市名和经纬度",
+                ),
+                gr.update(
                     value="🚀 Generate Poster" if lang == "English" else "🚀 生成海报"
                 ),
                 gr.update(
                     label="📥 Download Poster" if lang == "English" else "📥 下载海报"
                 ),
+                gr.update(
+                    label="Main Title" if lang == "English" else "主标题 (Main Title)",
+                    placeholder="e.g. Shanghai or 'Our Home'" if lang == "English" else "如: Shanghai 或 '我们的家'"
+                ),
+                gr.update(
+                    label="Subtitle" if lang == "English" else "副标题 (Subtitle)",
+                    placeholder="e.g. China or '2024.10.20'" if lang == "English" else "如: China 或 '2024.10.20'"
+                ),
+                gr.update(
+                    value="💡 **Guide**:\n"
+                        "- **Latitude**: North-South, range -90 to 90 (China: ~18~53).\n"
+                        "- **Longitude**: East-West, range -180 to 180 (China: ~73~135).\n\n"
+                        "Use [Coordinate Picker](https://map.jiqrxx.com/jingweidu/) to find exact values."
+                    if lang == "English" else
+                    "💡 **填写指南**：\n"
+                        "- **纬度 (Latitude)**: 南北向坐标，范围 -90 至 90 (中国约 18~53)。\n"
+                        "- **经度 (Longitude)**: 东西向坐标，范围 -180 至 180 (中国约 73~135)。\n\n"
+                        "您可以访问 [坐标拾取系统](https://map.jiqrxx.com/jingweidu/) 获取精确数值。"
+                )
             )
 
         lang_radio.change(
@@ -685,6 +794,7 @@ def create_interface():
                 country_dropdown,
                 province_dropdown,
                 city_dropdown,
+                district_dropdown,
                 theme_dropdown,
                 layers_checkbox,
             ],
@@ -701,9 +811,26 @@ def create_interface():
                 height_input,
                 format_radio,
                 no_crop_checkbox,
+                show_text_checkbox,
                 generate_btn,
                 download_btn,
+                custom_city_name,
+                custom_country_name,
+                custom_coords_info,
             ],
+        )
+
+        def toggle_location_mode(mode):
+            is_custom = mode in ["自定义坐标", "Custom Coordinates"]
+            return {
+                city_selection_group: gr.update(visible=not is_custom),
+                custom_coords_group: gr.update(visible=is_custom),
+            }
+
+        location_mode.change(
+            fn=toggle_location_mode,
+            inputs=[location_mode],
+            outputs=[city_selection_group, custom_coords_group],
         )
 
         # Country change -> update provinces
@@ -748,6 +875,11 @@ def create_interface():
         generate_btn.click(
             fn=generate_poster,
             inputs=[
+                location_mode,
+                custom_lat,
+                custom_lon,
+                custom_city_name,
+                custom_country_name,
                 country_dropdown,
                 province_dropdown,
                 city_dropdown,
@@ -758,6 +890,7 @@ def create_interface():
                 height_input,
                 format_radio,
                 no_crop_checkbox,
+                show_text_checkbox,
                 lang_radio,
                 layers_checkbox,
             ],
