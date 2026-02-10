@@ -24,6 +24,10 @@
   <img src="posters/shanghai_ocean_20260121_215944.png" width="300">
 </p>
 
+
+### 视频教程：[城市地图海报生成器！开源！（本地部署教程）](https://www.bilibili.com/video/BV1P2Fmz4Eth/?share_source=copy_web&vd_source=8dbd6f3f498e8983cc4c708b45b3df6c)
+
+
 ### ⚠️ 注意事项与局限性
 
 - **特大城市**（如北京）：可能会出现中心定位不准的问题。
