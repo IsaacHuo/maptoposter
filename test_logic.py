@@ -1,10 +1,18 @@
-import sys
 import os
+import sys
+import tempfile
 
 # Add current directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from cities_data import get_provinces, get_cities, get_districts, get_manual_coordinates
+from maptoposter.layers import (
+    keys_to_labels,
+    selected_labels_to_keys,
+    selected_layer_flags,
+)
+from maptoposter.rendering import create_bbox, generate_output_filename
+from maptoposter.themes import load_theme, list_themes
 
 
 def test_china_hierarchy():
@@ -20,6 +28,7 @@ def test_china_hierarchy():
     cities = get_cities("中国", "广东省", lang="cn")
     print(f"Found {len(cities)} cities in 广东省.")
     assert len(cities) > 10, f"Expected >10 cities in GD, found {len(cities)}"
+    assert cities[0] == ("整个省", "广东省_WHOLE"), "Whole province option missing"
     assert any(c[1] == "广州市" for c in cities), "广州市 not found"
 
     # 3. Test Districts
@@ -70,10 +79,61 @@ def test_manual_coordinates():
     assert coords is not None, "Could not find Pudong coords"
 
 
+def test_theme_helpers():
+    print("\nTesting Theme Helpers...")
+
+    themes = list_themes()
+    print(f"Found {len(themes)} themes.")
+    assert "feature_based" in themes, "feature_based theme not found"
+
+    theme = load_theme("feature_based", verbose=False)
+    assert theme["name"] == "Feature-Based Shading"
+
+    fallback = load_theme("__missing_theme__", verbose=False)
+    assert fallback["name"] == "Feature-Based Shading"
+
+
+def test_layer_helpers():
+    print("\nTesting Layer Helpers...")
+
+    keys = selected_labels_to_keys(["Motorway", "主干道", "Water"])
+    assert keys == ["motorway", "primary", "water"]
+
+    labels = keys_to_labels(keys, "cn")
+    assert labels == ["高速公路", "主干道", "水域"]
+
+    flags = selected_layer_flags(["Motorway", "水域"])
+    assert flags == {
+        "show_motorway": True,
+        "show_primary": False,
+        "show_secondary": False,
+        "show_water": True,
+        "show_parks": False,
+    }
+
+
+def test_rendering_helpers():
+    print("\nTesting Rendering Helpers...")
+
+    west, south, east, north = create_bbox((30.0, 120.0), 10000, 12, 16)
+    assert west < east
+    assert south < north
+    assert (east - west) < (north - south), "Portrait bbox should be narrower than tall"
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        filename = generate_output_filename("New York", "noir", "png", directory=temp_dir)
+        assert filename.startswith(temp_dir)
+        assert filename.endswith(".png")
+        assert "new_york_noir_" in os.path.basename(filename)
+
+
 if __name__ == "__main__":
     try:
         test_china_hierarchy()
         test_manual_coordinates()
+        test_theme_helpers()
+        test_layer_helpers()
+        test_rendering_helpers()
         print("\n✅ Data logic tests passed!")
     except Exception as e:
         print(f"\n❌ Tests failed: {e}")

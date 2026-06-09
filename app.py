@@ -3,8 +3,6 @@
 Gradio Web Interface for City Map Poster Generator
 """
 
-import os
-import json
 import tempfile
 
 # Monkey-patch gradio_client bug before importing gradio
@@ -39,56 +37,15 @@ from cities_data import (
     translate,
     get_country_key,
 )
-
-
-# --- Constants ---
-THEMES_DIR = "themes"
-FONTS_DIR = "fonts"
-POSTERS_DIR = "posters"
-
-# Layer Constants
-LAYERS_EN = ["Motorway", "Primary Roads", "Secondary Roads", "Water", "Parks"]
-LAYERS_CN = ["高速公路", "主干道", "次干道", "水域", "公园"]
-LAYER_KEYS = ["motorway", "primary", "secondary", "water", "parks"]
-
-
-def get_available_themes():
-    """Scans the themes directory and returns a list of available theme names."""
-    if not os.path.exists(THEMES_DIR):
-        return []
-
-    themes = []
-    for file in sorted(os.listdir(THEMES_DIR)):
-        if file.endswith(".json"):
-            theme_name = file[:-5]
-            themes.append(theme_name)
-    return themes
-
-
-def get_theme_choices(lang="en"):
-    """Return a list of (Display Name, Internal Name) tuples for themes."""
-    internal_names = get_available_themes()
-    choices = []
-
-    for internal_name in internal_names:
-        theme_info = load_theme_info(internal_name)
-        if theme_info:
-            proper_name = theme_info.get("name", internal_name)
-            display_name = translate(proper_name, lang)
-            choices.append((display_name, internal_name))
-        else:
-            choices.append((internal_name, internal_name))
-
-    return choices
-
-
-def load_theme_info(theme_name):
-    """Load theme details for preview."""
-    theme_file = os.path.join(THEMES_DIR, f"{theme_name}.json")
-    if os.path.exists(theme_file):
-        with open(theme_file, "r") as f:
-            return json.load(f)
-    return None
+from maptoposter.layers import (
+    LAYERS_EN,
+    keys_to_labels,
+    labels_for_language,
+    selected_labels_to_keys,
+    selected_layer_flags,
+)
+from maptoposter.rendering import create_poster, generate_output_filename, get_coordinates
+from maptoposter.themes import get_theme_choices, load_theme, load_theme_info
 
 
 def get_theme_preview_html(theme_name, lang="en"):
@@ -169,20 +126,8 @@ def generate_poster(
     layers_selection,
     progress=gr.Progress(),
 ):
-    """
-    Generate the map poster with given parameters.
-    """
-    # Import here to avoid circular imports and ensure THEME is set correctly
-    import create_map_poster as cmp
-
-    # Decode layer selection
-    show_motorway = any(x in ["Motorway", "高速公路"] for x in layers_selection)
-    show_primary = any(x in ["Primary Roads", "主干道"] for x in layers_selection)
-    show_secondary = any(x in ["Secondary Roads", "次干道"] for x in layers_selection)
-    show_water = any(x in ["Water", "水域"] for x in layers_selection)
-    show_parks = any(x in ["Parks", "公园"] for x in layers_selection)
-
-    # Determine display names based on poster_lang
+    """Generate the map poster with given parameters."""
+    layer_flags = selected_layer_flags(layers_selection)
     lang_code = "en" if poster_lang == "English" else "cn"
     actual_distance = distance
     display_city = ""
@@ -190,40 +135,28 @@ def generate_poster(
     coords = None
 
     progress(0.1, desc="正在加载主题...")
-    # Load theme
-    cmp.THEME = cmp.load_theme(theme_name)
+    theme = load_theme(theme_name)
 
-    if location_mode == "自定义坐标" or location_mode == "Custom Coordinates":
+    if location_mode in ["自定义坐标", "Custom Coordinates"]:
         lat_val = float(custom_lat)
         lon_val = float(custom_lon)
-        
-        # Basic validation: Latitude must be between -90 and 90
+
         if lat_val < -90 or lat_val > 90:
             return None, f"❌ 纬度超出范围 (-90 到 90)。你是否填反了经纬度？(当前填入: {lat_val})"
 
         coords = (lat_val, lon_val)
         display_city = custom_city_name if custom_city_name else ""
         display_country = custom_country_name if custom_country_name else ""
-
-        # Determine output filename component
-        selected_location = display_city
+        selected_location = display_city or "custom_location"
 
     else:
-        # Standard Dropdown Logic
-        # Parse country
-        # Since we now use (Display, Value) tuples where Value is the key,
-        # country_display is likely already the key. get_country_key remains for safety.
         selected_country = get_country_key(country_display)
-
-        # Use dropdown selection
-        # If district is selected and isn't "整个城市", use its coordinates
         selected_location = (
             district_dropdown
             if (district_dropdown and district_dropdown != city_dropdown)
             else city_dropdown
         )
 
-        # Detect if we are selecting an entire province
         is_whole_province = False
         if selected_country == "中国" and selected_location:
             if selected_location.endswith("_WHOLE"):
@@ -236,102 +169,73 @@ def generate_poster(
         if not selected_country:
             return None, "❌ 请选择国家"
 
-        # For whole province, we might want to override the distance if it's too small
-        if is_whole_province:
-            # A province is much larger than a city. Default 10km is way too small.
-            # We'll use a larger default or just trust the user if they've slid it up,
-            # but let's ensure it's at least 150km for a province.
-            if distance < 100000:
-                actual_distance = 200000  # 200km default for province
-                print(
-                    f"Whole province detected ({selected_location}). Increasing distance to {actual_distance}m"
-                )
+        if is_whole_province and distance < 100000:
+            actual_distance = 200000
+            print(
+                f"Whole province detected ({selected_location}). Increasing distance to {actual_distance}m"
+            )
 
         if selected_country == "中国" and lang_code == "cn":
             if is_whole_province:
                 display_city = selected_location
                 display_country = "中国"
-            # Hierarchical logic for China (Chinese language)
             elif district_dropdown and district_dropdown != city_dropdown:
-                # Case 3 & 4: District selected
                 display_city = district_dropdown
                 if province == city_dropdown:
-                    # Case 3: District of Municipality
                     display_country = f"中国 {province}"
                 else:
-                    # Case 4: District of Regular City
                     display_country = f"中国 {province} {city_dropdown}"
             else:
-                # Case 1 & 2: City selected (or "Whole City")
                 display_city = city_dropdown
                 if province == city_dropdown:
-                    # Case 1: Municipality
                     display_country = "中国"
                 else:
-                    # Case 2: Regular City
                     display_country = f"中国 {province}"
         else:
-            # Standard logic for International or English posters
             display_city = translate(selected_location, lang_code)
             display_country = translate(selected_country, lang_code)
 
         progress(0.2, desc="正在获取坐标...")
 
         try:
-            # We search coordinates using the selection
-            # CMP might need the "original" names if OSM behaves better with them
-            # For China, "广州" is better than "Guangzhou" for geopy sometimes, but geopy is usually good.
-            # Let's ensure we use the 'original' internal key if possible for best OSM matching
-            # However, for cities, we don't have a strict key map like for countries.
-            # We can try to translate to CN if it's a Chinese city.
-            search_city = selected_location
-            search_country = selected_country
-            # Use city as parent if searching for a district, otherwise use province
             search_parent = (
                 city_dropdown
                 if (district_dropdown and district_dropdown != city_dropdown)
                 else province
             )
-
-            coords = cmp.get_coordinates(
-                search_city, search_country, parent=search_parent
-            )
+            coords = get_coordinates(selected_location, selected_country, parent=search_parent)
         except Exception as e:
             return None, f"❌ 无法找到城市坐标: {str(e)}"
 
     progress(0.3, desc="正在生成海报...")
 
-    # Generate output filename (using English/Slugified names)
     en_city = translate(selected_location, "en")
-    temp_dir = tempfile.gettempdir()
-    output_file = cmp.generate_output_filename(
-        en_city, theme_name, output_format, directory=temp_dir
+    output_file = generate_output_filename(
+        en_city, theme_name, output_format, directory=tempfile.gettempdir()
     )
 
     try:
-        # Wrap the generator to yield status updates and final result
-        for status in cmp.create_poster(
-            display_city,  # Pass translated names for display
+        for status in create_poster(
+            display_city,
             display_country,
             coords,
             actual_distance,
             output_file,
             output_format,
+            theme=theme,
+            theme_name=theme_name,
             width=width,
             height=height,
             no_crop=no_crop,
             show_text=show_text,
-            show_motorway=show_motorway,
-            show_primary=show_primary,
-            show_secondary=show_secondary,
-            show_water=show_water,
-            show_parks=show_parks,
+            **layer_flags,
         ):
-            # Translate common status messages if possible
             status_display = status
             if lang_code == "cn":
                 if "Downloading street network" in status:
                     status_display = "正在下载街道数据..."
+                elif "Downloading major road network" in status:
+                    status_display = "正在下载主干道路数据..."
                 elif "Downloading features" in status:
                     status_display = "正在下载水域和公园数据..."
                 elif "Rendering map" in status:
@@ -346,7 +250,6 @@ def generate_poster(
             yield None, f"⏳ {status_display}", None
 
         progress(1.0, desc="完成!")
-
         yield output_file, f"✅ 海报生成成功！保存至: {output_file}", output_file
 
     except Exception as e:
@@ -354,7 +257,6 @@ def generate_poster(
 
         traceback.print_exc()
         yield None, f"❌ 生成失败: {str(e)}", None
-
 
 def update_provinces(country, lang="en"):
     """Update province dropdown based on country selection and language."""
@@ -680,21 +582,9 @@ def create_interface():
             new_preview = get_theme_preview_html(current_theme, lang)
 
             # Layers
-            map_en_to_key = dict(zip(LAYERS_EN, LAYER_KEYS))
-            map_cn_to_key = dict(zip(LAYERS_CN, LAYER_KEYS))
-            map_key_to_en = dict(zip(LAYER_KEYS, LAYERS_EN))
-            map_key_to_cn = dict(zip(LAYER_KEYS, LAYERS_CN))
-
-            current_keys = []
-            for x in current_layers:
-                if x in map_en_to_key:
-                    current_keys.append(map_en_to_key[x])
-                elif x in map_cn_to_key:
-                    current_keys.append(map_cn_to_key[x])
-
-            target_map = map_key_to_en if lang == "English" else map_key_to_cn
-            new_layer_choices = LAYERS_EN if lang == "English" else LAYERS_CN
-            new_layer_values = [target_map[k] for k in current_keys if k in target_map]
+            current_keys = selected_labels_to_keys(current_layers)
+            new_layer_choices = labels_for_language(lang_code)
+            new_layer_values = keys_to_labels(current_keys, lang_code)
 
             return (
                 gr.update(

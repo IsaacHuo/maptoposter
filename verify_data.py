@@ -21,6 +21,7 @@ def test_china_hierarchy():
     cities = get_cities("中国", "广东省", lang="cn")
     print(f"Found {len(cities)} cities in 广东省.")
     assert len(cities) > 10, f"Expected >10 cities in GD, found {len(cities)}"
+    assert cities[0] == ("整个省", "广东省_WHOLE"), "Whole province option missing"
     assert any(c[1] == "广州市" for c in cities), "广州市 not found"
 
     # 3. Test Districts

@@ -1,2 +1,5 @@
-def hello() -> str:
-    return "Hello from maptoposter!"
+"""MapToPoster package."""
+
+__all__ = ["__version__"]
+
+__version__ = "0.1.0"

@@ -1,16 +1,15 @@
 import json
-import os
+from functools import lru_cache
 
-CHINA_DATA_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "public", "china-city-data"
-)
+from maptoposter.paths import CHINA_DATA_DIR
+
 _CHINA_INFO_CACHE = None
 
 
 def _load_china_info():
     global _CHINA_INFO_CACHE
     if _CHINA_INFO_CACHE is None:
-        info_path = os.path.join(CHINA_DATA_DIR, "info.json")
+        info_path = CHINA_DATA_DIR / "info.json"
         try:
             with open(info_path, "r", encoding="utf-8") as f:
                 _CHINA_INFO_CACHE = json.load(f)
@@ -1019,6 +1018,7 @@ CITY_CENTERS = {
 }
 
 
+@lru_cache(maxsize=4096)
 def get_manual_coordinates(name, parent_adcode=None):
     """Return manual coordinates if available, else None."""
     if not name:
@@ -1042,6 +1042,7 @@ def get_manual_coordinates(name, parent_adcode=None):
     return None
 
 
+@lru_cache(maxsize=4096)
 def get_china_adcode(name, parent_adcode=None):
     """Search for adcode by name in local China data."""
     if not name:
@@ -1058,6 +1059,11 @@ def get_china_adcode(name, parent_adcode=None):
             for p in china_entry.get("children", []):
                 if p["name"] == search_name or p["name"].rstrip("省").rstrip("市") == search_name:
                     return p["adcode"]
+        # Fallback: find city-level entries when only the city name is known.
+        for entry in info.values():
+            for child in entry.get("children", []):
+                if child["name"] == search_name:
+                    return child["adcode"]
     else:
         parent_entry = info.get(str(parent_adcode))
         if parent_entry:
@@ -1155,11 +1161,6 @@ def get_cities(country_name, province_name, lang="en"):
     """Return list of (Display, Key) tuples for cities."""
     country_key = get_country_key(country_name)
     all_choices = []
-    
-    # Add "Whole Province" option for China
-    if country_key == "中国":
-        whole_province_display = "整个省" if lang == "cn" else "Whole Province"
-        all_choices.append((whole_province_display, province_name + "_WHOLE"))
 
     # Try local China GeoJSON data (info.json)
     if country_key == "中国":
@@ -1173,8 +1174,10 @@ def get_cities(country_name, province_name, lang="en"):
                     p_entry.get("children")
                     and p_entry["children"][0].get("level") == "district"
                 ):
-                    all_choices.append((translate(province_name, lang), province_name))
-                    return all_choices
+                    return [(translate(province_name, lang), province_name)]
+
+                whole_province_display = "整个省" if lang == "cn" else "Whole Province"
+                all_choices.append((whole_province_display, province_name + "_WHOLE"))
 
                 for c in p_entry.get("children", []):
                     name = c["name"]
@@ -1198,7 +1201,9 @@ def get_cities(country_name, province_name, lang="en"):
                     break
 
         if province_key in CITIES[country_key]:
-            start_idx = len(all_choices)
+            if country_key == "中国" and not all_choices:
+                whole_province_display = "整个省" if lang == "cn" else "Whole Province"
+                all_choices.append((whole_province_display, province_name + "_WHOLE"))
             for c_name in CITIES[country_key][province_key]:
                 display = translate(c_name, lang)
                 all_choices.append((display, c_name))
