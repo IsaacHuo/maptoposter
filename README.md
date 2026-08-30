@@ -11,54 +11,69 @@ pinned: false
 
 # MapToPoster
 
-**把任何地方变成一张地图艺术海报。 / Turn any place into a piece of art.**
+**Turn any place into a piece of art.**
 
-[中文](#中文) · [English](#english) · [在线体验 / Live demo](https://huggingface.co/spaces/isaachwf/MapToPoster)
+[中文](#中文) · [English](#english) · [Live demo](https://huggingface.co/spaces/isaachwf/MapToPoster)
 
-![MapToPoster sample](frontend/public/sample-poster.webp)
+![MapToPoster sample poster](docs/examples/editor-preview.png)
+
+MapToPoster is an open-source map-poster editor for cities, neighbourhoods, campuses, and memorable coordinates. Search for a place, frame its streets and natural features, tune the visual system, and export a print-ready poster as PNG, SVG, or PDF.
 
 ## 中文
 
-MapToPoster 是一个地图海报编辑器。你可以搜索城市、街区、校园或坐标，在交互地图中调整取景范围，再编辑主题、版式、文字、图层和纸张比例，最后导出 PNG、SVG 或 PDF。
+MapToPoster 是一个开源的地图海报编辑器。你可以搜索城市、街区、校园或坐标，调整地图取景范围，选择主题与版式，编辑文字和图层，最后导出适合分享或打印的海报。
 
-### 主要功能
+### 在线体验
 
-- 搜索全球地点，也支持直接输入 `纬度, 经度`。
-- 使用 MapLibre 交互调整中心点、缩放和海报边界。
-- 内置 17 套 JSON 主题和 5 种排版布局。
-- 自定义标题、副标题、说明文字、坐标、字距、对齐和分隔线。
+前往 [Hugging Face Space](https://huggingface.co/spaces/isaachwf/MapToPoster) 使用在线版本。项目运行在免费的 CPU Basic 硬件上：实例在闲置后会休眠，首次访问可能需要等待唤醒；地图数据和地理编码缓存保存在临时磁盘中，重启后会重新下载，不影响功能。
+
+### 功能
+
+- 搜索全球地点，也可以直接输入 `纬度, 经度`。
+- 使用交互式地图调整中心点、缩放和海报边界。
+- 内置多套 JSON 主题和布局，可从极简风格切换到赛博朋克、复古或自然色调。
+- 自定义标题、副标题、说明文字、坐标、字距、对齐方式和分隔线。
 - 控制高速、主干道、次干道、住宅道路、水域和公园图层。
-- 支持 3:4、4:5、2:3、1:1、9:16、A4 和 A3。
-- 快速低分辨率预览，以及 300 DPI PNG、SVG、PDF 导出。
-- 中国行政区优先使用本地数据，其余位置通过 Nominatim 搜索。
+- 支持 `3:4`、`4:5`、`2:3`、`1:1`、`9:16`、A4 和 A3 比例。
+- 选择“开始生成”后才抓取地图数据，并在准备、渲染和导出阶段显示进度与耗时。
+- 导出 PNG、SVG 和 PDF；PNG 支持预览分辨率或 300 DPI 打印分辨率。
+- 中国行政区优先使用本地数据，其余地点通过 Nominatim 查询。
 
-### 在线版本
+### 示例
 
-最新版部署在 [Hugging Face Space](https://huggingface.co/spaces/isaachwf/MapToPoster)，使用免费的 CPU Basic 硬件。免费实例闲置后会休眠，第一次访问可能需要等待唤醒。
+<p align="center">
+  <img src="docs/examples/beijing-japanese-ink.png" width="220" alt="北京 Japanese Ink 海报">
+  <img src="docs/examples/guangzhou-pastel-dream.png" width="220" alt="广州 Pastel Dream 海报">
+  <img src="docs/examples/guilin-forest.png" width="220" alt="桂林 Forest 海报">
+</p>
+<p align="center">
+  <img src="docs/examples/hong-kong-ocean.png" width="220" alt="香港 Ocean 海报">
+  <img src="docs/examples/shanghai-ocean.png" width="220" alt="上海 Ocean 海报">
+</p>
 
-地图数据和地理编码缓存位于容器的 `/data` 目录。免费硬件没有永久磁盘，Space 重启后缓存会被清空，但不会影响功能，只会让下一次生成重新下载 OpenStreetMap 数据。
+示例展示的是同一套生成流程在不同地点和主题下的结果。OpenStreetMap 的数据完整度因地区而异，大城市或较大的取景范围通常需要更长的准备时间。
 
-### 本地开发
+### 本地运行
 
-项目要求 Python 3.12+、[uv](https://docs.astral.sh/uv/) 和 Node.js 22+。前端依赖由 pnpm 管理。
+要求：Python 3.12+、[uv](https://docs.astral.sh/uv/)、Node.js 22+ 和 pnpm。
 
-```powershell
+```bash
 uv sync --all-groups
 corepack pnpm --dir frontend install --frozen-lockfile
 ```
 
-在两个终端中启动 API 和前端开发服务器：
+开发时分别启动 API 和前端：
 
-```powershell
+```bash
 uv run python app.py
 corepack pnpm --dir frontend dev
 ```
 
-打开 <http://localhost:5173>。FastAPI 位于 <http://localhost:7860>。
+然后打开 <http://localhost:5173>。FastAPI 默认运行在 <http://localhost:7860>。
 
-生产模式本地运行：
+如需模拟 Hugging Face 上的单容器运行方式：
 
-```powershell
+```bash
 corepack pnpm --dir frontend build
 uv run python app.py
 ```
@@ -72,25 +87,18 @@ docker build -t maptoposter .
 docker run --rm -p 7860:7860 maptoposter
 ```
 
-Docker 镜像使用 Node 多阶段构建前端，并以非 root 用户运行单个 Uvicorn worker。详细部署、凭据和回滚说明见 [Hugging Face 部署文档](docs/huggingface_deployment.md)。
-
-### 测试
-
-```powershell
-uv run pytest
-uv run ruff check src backend tests app.py create_map_poster.py
-uv run pyright
-corepack pnpm --dir frontend test
-corepack pnpm --dir frontend lint
-corepack pnpm --dir frontend build
-```
+镜像使用 Node 和 Python 多阶段构建，最终以非 root 用户运行单个 Uvicorn worker，并监听 `0.0.0.0:7860`。
 
 ### CLI 与 API
 
-```powershell
+核心生成流程也可以通过 CLI 使用：
+
+```bash
 uv run maptoposter --help
 uv run maptoposter --city "Beijing" --theme japanese_ink --output-format png
 ```
+
+HTTP API 位于 `/api/v1`：
 
 ```text
 GET  /api/v1/health
@@ -103,39 +111,47 @@ POST /api/v1/posters/preview
 POST /api/v1/posters/export
 ```
 
-## English
+### 测试与代码检查
 
-MapToPoster is a map-poster editor for cities, neighbourhoods, campuses, and meaningful coordinates. Frame a place in the interactive map, customize its style and typography, then export a print-ready poster.
+```bash
+uv run pytest
+uv run ruff check src backend tests app.py create_map_poster.py
+uv run pyright
+corepack pnpm --dir frontend test
+corepack pnpm --dir frontend lint
+corepack pnpm --dir frontend build
+```
+
+### 部署
+
+GitHub `main` 是唯一源码分支。每次推送都会先运行 Python、React 和 Docker 检查，全部通过后再由 GitHub Actions 将文件镜像到现有的 [Hugging Face Space](https://huggingface.co/spaces/isaachwf/MapToPoster)。部署、Token 配置、缓存和回滚说明见 [Hugging Face 部署文档](docs/huggingface_deployment.md)。
+
+## English
 
 ### Features
 
-- Search worldwide locations or enter `latitude, longitude` directly.
-- Pan and zoom an interactive MapLibre viewport to frame the poster.
-- Choose from 17 JSON themes and five layout presets.
+- Search worldwide places or enter `latitude, longitude` manually.
+- Pan and zoom an interactive map to frame the poster.
+- Choose from a growing collection of JSON themes and layout presets.
 - Edit titles, subtitles, captions, coordinates, tracking, alignment, and dividers.
 - Toggle motorway, primary, secondary, residential, water, and park layers.
-- Use 3:4, 4:5, 2:3, 1:1, 9:16, A4, and A3 size presets.
-- Generate quick previews and export 300 DPI PNG, SVG, or PDF files.
-- Resolve Chinese administrative areas locally before contacting Nominatim.
-
-### Hosted application
-
-The latest `main` build runs on the free [Hugging Face Space](https://huggingface.co/spaces/isaachwf/MapToPoster). Free CPU Basic instances sleep after inactivity, so the first visit may need time to wake the application.
-
-Map and geocoding caches use `/data` inside the container. Free hardware does not provide persistent disk storage: a restart clears the cache, but the application remains functional and downloads the required OpenStreetMap data again.
+- Use `3:4`, `4:5`, `2:3`, `1:1`, `9:16`, A4, and A3 size presets.
+- Start generation explicitly, with visible progress and elapsed time for data preparation, rendering, and export.
+- Export PNG, SVG, or PDF; PNG supports preview and 300 DPI print output.
+- Resolve Chinese administrative areas locally before falling back to Nominatim.
 
 ### Local development
 
-The project requires Python 3.12+, [uv](https://docs.astral.sh/uv/), and Node.js 22+. pnpm manages the frontend dependencies.
+Requirements: Python 3.12+, [uv](https://docs.astral.sh/uv/), Node.js 22+, and pnpm.
 
-```powershell
+```bash
 uv sync --all-groups
 corepack pnpm --dir frontend install --frozen-lockfile
 ```
 
 Start the API and frontend development server in separate terminals:
 
-```powershell
+```bash
 uv run python app.py
 corepack pnpm --dir frontend dev
 ```
@@ -144,7 +160,7 @@ Open <http://localhost:5173>. The API runs at <http://localhost:7860>.
 
 For a production-style local run:
 
-```powershell
+```bash
 corepack pnpm --dir frontend build
 uv run python app.py
 ```
@@ -155,24 +171,38 @@ Open <http://localhost:7860>; FastAPI serves the built React application directl
 
 ```text
 React + TypeScript editor
-        ↓ JSON / image bytes
-FastAPI application layer (backend/)
-        ↓ PosterConfig / MapDataRef
-MapToPoster core (src/maptoposter/)
+        ↓ JSON requests and image responses
+FastAPI application layer
+        ↓ typed PosterConfig and MapDataRef
+MapToPoster core
         ├── local and Nominatim geocoding
-        ├── OSM acquisition and GeoPackage cache
-        ├── typed themes, layouts, typography, and viewport models
-        └── network-free Matplotlib renderer
+        ├── OpenStreetMap acquisition and cache
+        ├── themes, layouts, typography, and viewport models
+        └── Matplotlib renderer
         ↓
 PNG / SVG / PDF
 ```
 
-### Deployment
+### Hosted application and deployment
 
-Every push to GitHub `main` runs the Python checks, frontend checks, and a Linux Docker smoke test. A successful workflow mirrors the repository to the Hugging Face Space `main` branch. Deployment and rollback instructions are in [docs/huggingface_deployment.md](docs/huggingface_deployment.md).
+The latest `main` build is available on the free [Hugging Face Space](https://huggingface.co/spaces/isaachwf/MapToPoster). The Space uses Docker on CPU Basic hardware. Free instances sleep after inactivity, and `/data` is temporary storage, so cached map data may need to be downloaded again after a restart.
 
-## Data and licensing
+Pushes to GitHub `main` run the complete validation workflow and publish only after all checks succeed. If validation or the Docker build fails, the existing Space version is left untouched. See [docs/huggingface_deployment.md](docs/huggingface_deployment.md) for deployment and rollback details.
 
-Roads, water, parks, and external geocoding results come from OpenStreetMap services. Provide an identifiable `MAPTOPOSTER_USER_AGENT` for non-Docker deployments and respect the upstream usage policies. Data completeness varies by location, and large viewports can take longer to prepare.
+### Contributing
 
-See [LICENSE](LICENSE) for the project license and review the bundled font licenses before redistributing them. Map data and derived geometries are © OpenStreetMap contributors.
+Contributions are welcome. Before opening a pull request:
+
+1. Create a focused branch from `main`.
+2. Keep user-facing text bilingual where it is part of the product UI.
+3. Add or update tests for behavioural changes.
+4. Run the Python and frontend checks listed above.
+5. Describe the change, verification steps, and any OpenStreetMap or rendering implications.
+
+Please avoid committing generated posters, local caches, credentials, or large binary files outside the documented Git LFS assets. For substantial changes, open an issue first so the design and scope can be discussed.
+
+### Data, attribution, and licensing
+
+Roads, water, parks, and external geocoding results come from OpenStreetMap services. Map data and derived geometries are © OpenStreetMap contributors. Use an identifiable `MAPTOPOSTER_USER_AGENT` for non-Docker deployments and follow the relevant upstream usage policies. Data completeness varies by location, and large viewports can take longer to prepare.
+
+See [LICENSE](LICENSE) for the project license. Review the bundled font licenses before redistributing the font files.
