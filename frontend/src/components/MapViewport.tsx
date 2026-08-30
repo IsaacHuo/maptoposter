@@ -15,6 +15,11 @@ const tileUrl = import.meta.env.VITE_MAP_TILE_URL ?? 'https://tile.openstreetmap
 export function MapViewport({ longitude, latitude, bbox, onViewportChange }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
+  const targetViewport = useRef({ longitude, latitude, bbox })
+
+  useEffect(() => {
+    targetViewport.current = { longitude, latitude, bbox }
+  }, [bbox, latitude, longitude])
 
   useEffect(() => {
     const element = container.current
@@ -22,9 +27,10 @@ export function MapViewport({ longitude, latitude, bbox, onViewportChange }: Pro
     let map: MapLibreMap | null = null
     const mount = () => {
       if (map || element.clientWidth === 0 || element.clientHeight === 0) return
+      const initial = targetViewport.current
       map = new Map({
         container: element,
-        center: [longitude, latitude],
+        center: [initial.longitude, initial.latitude],
         zoom: 10.8,
         attributionControl: false,
         style: {
@@ -35,7 +41,10 @@ export function MapViewport({ longitude, latitude, bbox, onViewportChange }: Pro
       })
       map.addControl(new NavigationControl({ showCompass: false }), 'top-right')
       map.addControl(new AttributionControl({ compact: true }), 'bottom-right')
-      map.fitBounds([[bbox.west, bbox.south], [bbox.east, bbox.north]], { padding: 14, animate: false })
+      map.fitBounds(
+        [[initial.bbox.west, initial.bbox.south], [initial.bbox.east, initial.bbox.north]],
+        { padding: 14, animate: false },
+      )
       map.on('moveend', () => {
         if (!map) return
         const bounds = map.getBounds()
@@ -47,16 +56,17 @@ export function MapViewport({ longitude, latitude, bbox, onViewportChange }: Pro
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(mount)
     observer?.observe(element)
     return () => { observer?.disconnect(); map?.remove(); mapRef.current = null }
-  }, [bbox.east, bbox.north, bbox.south, bbox.west, latitude, longitude, onViewportChange])
+  }, [onViewportChange])
 
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
     const center = map.getCenter()
     if (Math.abs(center.lng - longitude) > 0.01 || Math.abs(center.lat - latitude) > 0.01) {
-      map.fitBounds([[bbox.west, bbox.south], [bbox.east, bbox.north]], { padding: 14, duration: 450 })
+      const target = targetViewport.current.bbox
+      map.fitBounds([[target.west, target.south], [target.east, target.north]], { padding: 14, duration: 450 })
     }
-  }, [bbox.east, bbox.north, bbox.south, bbox.west, latitude, longitude])
+  }, [latitude, longitude])
 
   return <div className="map-viewport" ref={container} aria-label="Interactive map viewport" />
 }
