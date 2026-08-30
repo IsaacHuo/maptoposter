@@ -10,7 +10,9 @@ COPY frontend/ ./
 RUN corepack pnpm build
 
 
-FROM ghcr.io/astral-sh/uv:0.12.7-python3.12-bookworm-slim AS runtime
+FROM python:3.12-slim-bookworm AS runtime
+
+COPY --from=ghcr.io/astral-sh/uv:0.12.7 /uv /uvx /bin/
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
