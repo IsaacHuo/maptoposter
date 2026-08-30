@@ -1,0 +1,100 @@
+name: Validate and publish Hugging Face Space
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hugging-face-space-main
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source and LFS assets
+        uses: actions/checkout@v6
+        with:
+          lfs: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.12.7"
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --frozen --all-groups
+
+      - name: Test and statically check Python
+        run: |
+          uv run pytest
+          uv run ruff check src backend tests app.py create_map_poster.py
+          uv run pyright
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        run: pnpm --dir frontend install --frozen-lockfile
+
+      - name: Test, lint, and build frontend
+        run: |
+          pnpm --dir frontend test
+          pnpm --dir frontend lint
+          pnpm --dir frontend build
+
+      - name: Build production container
+        run: docker build --pull --tag maptoposter:${GITHUB_SHA} .
+
+      - name: Smoke-test production container
+        run: |
+          docker run --detach --name maptoposter-smoke --publish 7860:7860 maptoposter:${GITHUB_SHA}
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:7860/api/v1/health >/dev/null; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              docker logs maptoposter-smoke
+              exit 1
+            fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:7860/ >/dev/null
+          docker rm --force maptoposter-smoke
+
+  publish:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source and LFS assets
+        uses: actions/checkout@v6
+        with:
+          lfs: true
+
+      - name: Mirror main to Hugging Face Space
+        uses: huggingface/hub-sync@v0.1.0
+        with:
+          github_repo_id: ${{ github.repository }}
+          huggingface_repo_id: isaachwf/MapToPoster
+          hf_token: ${{ secrets.HF_TOKEN }}
+          repo_type: space
+          space_sdk: docker

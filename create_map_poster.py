@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """CLI and backward-compatible façade for map poster generation."""
 
 import argparse
@@ -6,17 +5,17 @@ import os
 
 from maptoposter.fonts import load_fonts
 from maptoposter.rendering import (
-    create_bbox,
-    create_gradient_fade,
     create_poster as _create_poster,
+)
+from maptoposter.rendering import (
     generate_output_filename,
     get_coordinates,
-    get_edge_colors_by_type as _get_edge_colors_by_type,
-    get_edge_widths_by_type,
-    has_chinese,
 )
-from maptoposter.themes import load_theme, list_themes as _list_theme_names
-
+from maptoposter.rendering import (
+    get_edge_colors_by_type as _get_edge_colors_by_type,
+)
+from maptoposter.themes import list_themes as _list_theme_names
+from maptoposter.themes import load_theme
 
 THEME = None
 FONTS = load_fonts()
@@ -27,9 +26,7 @@ def get_available_themes():
     return list(_list_theme_names())
 
 
-def get_edge_colors_by_type(
-    G, show_motorway=True, show_primary=True, show_secondary=True
-):
+def get_edge_colors_by_type(G, show_motorway=True, show_primary=True, show_secondary=True):
     """Backward-compatible wrapper using the active global theme."""
     active_theme = THEME if THEME is not None else load_theme()
     return _get_edge_colors_by_type(
@@ -185,9 +182,7 @@ Examples:
         action="store_true",
         help="Do not crop the image to the data extent (keeps background)",
     )
-    parser.add_argument(
-        "--list-themes", action="store_true", help="List all available themes"
-    )
+    parser.add_argument("--list-themes", action="store_true", help="List all available themes")
     parser.add_argument(
         "--format",
         "-f",

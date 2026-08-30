@@ -1,5 +1,7 @@
 """MapToPoster package."""
 
-__all__ = ["__version__"]
+from .models import PosterConfig
 
-__version__ = "0.1.0"
+__all__ = ["PosterConfig", "__version__"]
+
+__version__ = "0.2.0"

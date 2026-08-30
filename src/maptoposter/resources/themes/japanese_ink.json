@@ -1,0 +1,15 @@
+{
+  "name": "Japanese Ink",
+  "description": "Traditional ink wash inspired - minimalist with subtle red accent",
+  "bg": "#FAF8F5",
+  "text": "#2C2C2C",
+  "gradient_color": "#FAF8F5",
+  "water": "#E8E4E0",
+  "parks": "#F0EDE8",
+  "road_motorway": "#701A00",
+  "road_primary": "#1A1A1A",
+  "road_secondary": "#333333",
+  "road_tertiary": "#4D4D4D",
+  "road_residential": "#666666",
+  "road_default": "#4D4D4D"
+}

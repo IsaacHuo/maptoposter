@@ -16,13 +16,10 @@ else
     echo "No processes found on port $PORT."
 fi
 
-# Path to python in venv
-VENV_PYTHON="./.venv/bin/python"
-
-if [ -f "$VENV_PYTHON" ]; then
-    echo "Starting application with virtual environment..."
-    $VENV_PYTHON app.py
-else
-    echo "Virtual environment not found, trying system python..."
-    python3 app.py
+if ! command -v uv >/dev/null 2>&1; then
+    echo "uv is required. Install it from https://docs.astral.sh/uv/"
+    exit 1
 fi
+
+echo "Starting application with uv..."
+uv run python app.py

@@ -2,27 +2,41 @@
 
 from __future__ import annotations
 
-import math
-from datetime import datetime
+import os
 from pathlib import Path
 from typing import Any
 
 import matplotlib.colors as mcolors
-import matplotlib.pyplot as plt
 import numpy as np
 import osmnx as ox
 import pandas as pd
-from geopy.geocoders import Nominatim
 from matplotlib.font_manager import FontProperties
 
 from .fonts import load_fonts
+from .geocoding import GeocodingService
+from .map_data import MapDataService
+from .models import (
+    Coordinate,
+    ExportConfig,
+    LayerConfig,
+    LayoutConfig,
+    Location,
+    MapConfig,
+    OutputFormat,
+    PosterConfig,
+    PosterSize,
+    SizePreset,
+    StyleConfig,
+    TypographyConfig,
+)
 from .paths import POSTERS_DIR
-from .themes import load_theme
-
+from .renderer import PosterRenderer
+from .themes import load_style
+from .viewport import create_bbox_tuple, create_viewport
 
 ox.settings.use_cache = True
 
-FEATURE_TAGS = {
+FEATURE_TAGS: dict[str, bool | str | list[str]] = {
     "natural": ["water", "wood", "scrub"],
     "waterway": ["riverbank", "dock"],
     "leisure": ["park", "garden", "nature_reserve"],
@@ -46,37 +60,16 @@ def generate_output_filename(
     directory: str | Path = POSTERS_DIR,
 ) -> str:
     """Generate unique output filename with city, theme, and datetime."""
-    output_dir = Path(directory)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    from .export import generate_output_filename as build_filename
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    city_slug = city.lower().replace(" ", "_")
-    ext = output_format.lower()
-    filename = f"{city_slug}_{theme_name}_{timestamp}.{ext}"
-    return str(output_dir / filename)
+    return build_filename(city, theme_name, output_format, directory)
 
 
-def create_bbox(point: tuple[float, float], dist: float, width: float, height: float) -> tuple[float, float, float, float]:
+def create_bbox(
+    point: tuple[float, float], dist: float, width: float, height: float
+) -> tuple[float, float, float, float]:
     """Create an OSMnx bbox tuple matching the poster aspect ratio."""
-    if height == 0:
-        raise ValueError("Poster height must be greater than 0.")
-
-    lat, lon = point
-    cos_lat = math.cos(math.radians(lat))
-    if abs(cos_lat) < 1e-6:
-        raise ValueError("Cannot calculate bounding box at this latitude.")
-
-    dist_ns = dist
-    dist_ew = dist * (width / height)
-
-    delta_lat = dist_ns / 111320.0
-    delta_lon = dist_ew / (111320.0 * cos_lat)
-
-    north = max(lat + delta_lat, lat - delta_lat)
-    south = min(lat + delta_lat, lat - delta_lat)
-    west = min(lon - delta_lon, lon + delta_lon)
-    east = max(lon - delta_lon, lon + delta_lon)
-    return (west, south, east, north)
+    return create_bbox_tuple(point, dist, width, height)
 
 
 def create_gradient_fade(ax, color: str, location: str = "bottom", zorder: int = 10) -> None:
@@ -150,9 +143,7 @@ def get_edge_colors_by_type(
             "unclassified",
             "service",
             "road",
-        ]:
-            color = theme["road_residential"]
-        elif highway in ["path", "footway", "track", "cycleway", "pedestrian"]:
+        ] or highway in ["path", "footway", "track", "cycleway", "pedestrian"]:
             color = theme["road_residential"]
         else:
             color = theme["road_default"]
@@ -175,9 +166,7 @@ def get_edge_widths_by_type(graph) -> list[float]:
             width = 1.3
         elif highway in ["secondary", "secondary_link"]:
             width = 1.0
-        elif highway in ["tertiary", "tertiary_link"]:
-            width = 0.8
-        elif highway in [
+        elif highway in ["tertiary", "tertiary_link"] or highway in [
             "residential",
             "living_street",
             "unclassified",
@@ -222,18 +211,10 @@ def get_coordinates(city: str, country: str, parent: str | None = None) -> tuple
         if manual_coords:
             return manual_coords
 
-    print(f"Looking up coordinates for {city}, {country} via Nominatim...")
-    geolocator = Nominatim(user_agent="city_map_poster", timeout=10)
-
-    import time
-
-    time.sleep(1)
-    location = geolocator.geocode(f"{city}, {country}")
-
-    if location:
-        print(f"✓ Found: {location.address}")
-        print(f"✓ Coordinates: {location.latitude}, {location.longitude}")
-        return (location.latitude, location.longitude)
+    results = GeocodingService().search(f"{city}, {country}", limit=1)
+    if results:
+        coordinate = results[0].coordinate
+        return (coordinate.latitude, coordinate.longitude)
     raise ValueError(f"Could not find coordinates for {city}, {country}")
 
 
@@ -275,19 +256,14 @@ def split_features(features):
     if "leisure" in features.columns:
         park_mask |= features["leisure"].notna()
     if "landuse" in features.columns:
-        park_mask |= features["landuse"].isin(
-            ["forest", "grass", "cemetery", "recreation_ground", "village_green"]
-        )
+        park_mask |= features["landuse"].isin(["forest", "grass", "cemetery", "recreation_ground", "village_green"])
     if "natural" in features.columns:
         park_mask |= features["natural"].isin(["wood", "scrub"])
 
     parks = features[park_mask]
     if not parks.empty:
         parks = parks[parks.geometry.type.isin(POLYGON_TYPES)].copy()
-        if not parks.empty:
-            parks = _simplify_polygons(parks)
-        else:
-            parks = None
+        parks = _simplify_polygons(parks) if not parks.empty else None
     else:
         parks = None
 
@@ -369,11 +345,7 @@ def _format_display_text(city: str, country: str, is_chinese: bool) -> tuple[str
 
 def _format_coordinates(point: tuple[float, float]) -> str:
     lat, lon = point
-    coords_text = (
-        f"{lat:.4f}° N / {lon:.4f}° E"
-        if lat >= 0
-        else f"{abs(lat):.4f}° S / {lon:.4f}° E"
-    )
+    coords_text = f"{lat:.4f}° N / {lon:.4f}° E" if lat >= 0 else f"{abs(lat):.4f}° S / {lon:.4f}° E"
     if lon < 0:
         coords_text = coords_text.replace("E", "W")
     return coords_text
@@ -400,159 +372,66 @@ def create_poster(
     show_parks: bool = True,
 ):
     """Generate a map poster and yield user-facing progress strings."""
-    active_theme = theme if theme is not None else load_theme(theme_name)
-
-    msg = f"Generating map for {city}, {country}..."
-    print(f"\n{msg}")
-    yield msg
-
-    is_large_area = dist > 50000
-    if is_large_area:
-        print(f"Large area detected (dist={dist}m). Fetching major roads only.")
-        yield "Large region detected. Fetching major roads only to avoid timeout..."
-
-    bbox = create_bbox(point, dist, width, height)
-    west, south, east, north = bbox
-
-    if is_large_area:
-        yield "Downloading major road network..."
-    else:
-        yield "Downloading street network..."
-    graph = _load_map_data(bbox, is_large_area)
-
-    yield "Downloading features (water, parks)..."
-    features = _load_features(bbox)
-    water_polys, water_lines, parks = split_features(features)
-
-    print("✓ All data downloaded successfully!")
-    yield "Data downloaded. Rendering map..."
-
-    print("Rendering map...")
-    fig, ax = plt.subplots(figsize=(width, height), facecolor=active_theme["bg"])
-    ax.set_facecolor(active_theme["bg"])
-    ax.set_position([0, 0, 1, 1])
-
-    if show_water:
-        if water_polys is not None and not water_polys.empty:
-            water_polys.plot(
-                ax=ax, facecolor=active_theme["water"], edgecolor="none", zorder=1
-            )
-
-        if water_lines is not None and not water_lines.empty:
-            water_lines.plot(ax=ax, color=active_theme["water"], linewidth=2.0, zorder=1)
-
-    if show_parks and parks is not None and not parks.empty:
-        parks_polys = parks[parks.geometry.type.isin(POLYGON_TYPES)]
-        if not parks_polys.empty:
-            parks_polys.plot(
-                ax=ax, facecolor=active_theme["parks"], edgecolor="none", zorder=2
-            )
-
-    print("Applying road hierarchy colors...")
-    yield "Applying road styles..."
-    edge_colors = get_edge_colors_by_type(
-        graph,
-        active_theme,
-        show_motorway=show_motorway,
-        show_primary=show_primary,
-        show_secondary=show_secondary,
+    del no_crop  # Exact poster dimensions are now always preserved.
+    yield f"Generating map for {city}, {country}..."
+    coordinate = Coordinate(*point)
+    viewport = create_viewport(coordinate, dist, width, height)
+    typed_style = _legacy_style(theme, theme_name)
+    poster = PosterConfig(
+        location=Location(city or "Custom location", coordinate, country=country),
+        map=MapConfig(viewport=viewport, network_type="drive" if dist > 50_000 else "all"),
+        style=typed_style,
+        typography=TypographyConfig(
+            title=city if show_text else "",
+            subtitle=country if show_text else "",
+            show_coordinates=show_text,
+            show_divider=show_text,
+        ),
+        layout=LayoutConfig(),
+        layers=LayerConfig(
+            motorway=show_motorway,
+            primary=show_primary,
+            secondary=show_secondary,
+            residential=True,
+            water=show_water,
+            parks=show_parks,
+        ),
+        size=PosterSize(SizePreset.CUSTOM, width, height),
     )
-    edge_widths = get_edge_widths_by_type(graph)
-
-    ox.plot_graph(
-        graph,
-        ax=ax,
-        bgcolor=active_theme["bg"],
-        node_size=0,
-        edge_color=edge_colors,
-        edge_linewidth=edge_widths,
-        show=False,
-        close=False,
+    map_service = MapDataService()
+    yield "Downloading street network and features..."
+    reference = map_service.prepare(poster.map)
+    yield "Data cache hit. Rendering map..." if reference.cache_hit else "Data downloaded. Rendering map..."
+    content = PosterRenderer().export(
+        map_service.load(reference),
+        poster,
+        ExportConfig(OutputFormat(output_format.lower()), dpi=300),
     )
-
-    ax.set_aspect("equal")
-    ax.set_xlim(west, east)
-    ax.set_ylim(south, north)
-
-    create_gradient_fade(ax, active_theme["gradient_color"], location="bottom", zorder=10)
-    create_gradient_fade(ax, active_theme["gradient_color"], location="top", zorder=10)
-
-    is_chinese, font_main, font_sub, font_coords, attr_font = _build_font_properties(city)
-    display_city, display_country = _format_display_text(city, country, is_chinese)
-
-    if show_text:
-        if display_city:
-            ax.text(
-                0.5,
-                0.14,
-                display_city,
-                transform=ax.transAxes,
-                color=active_theme["text"],
-                ha="center",
-                fontproperties=font_main,
-                zorder=11,
-            )
-
-        if display_country:
-            ax.text(
-                0.5,
-                0.10,
-                display_country,
-                transform=ax.transAxes,
-                color=active_theme["text"],
-                ha="center",
-                fontproperties=font_sub,
-                zorder=11,
-            )
-
-        if display_city and display_country:
-            ax.plot(
-                [0.4, 0.6],
-                [0.125, 0.125],
-                transform=ax.transAxes,
-                color=active_theme["text"],
-                linewidth=1,
-                zorder=11,
-            )
-
-        if display_city or display_country:
-            ax.text(
-                0.5,
-                0.07,
-                _format_coordinates(point),
-                transform=ax.transAxes,
-                color=active_theme["text"],
-                alpha=0.7,
-                ha="center",
-                fontproperties=font_coords,
-                zorder=11,
-            )
-
-    ax.text(
-        0.98,
-        0.02,
-        "© OpenStreetMap contributors",
-        transform=ax.transAxes,
-        color=active_theme["text"],
-        alpha=0.5,
-        ha="right",
-        va="bottom",
-        fontproperties=attr_font,
-        zorder=11,
-    )
-
-    print(f"Saving to {output_file}...")
     yield f"Saving to {output_file}..."
-
-    fmt = output_format.lower()
-    save_kwargs = dict(facecolor=active_theme["bg"], pad_inches=0.05)
-    if not no_crop:
-        save_kwargs["bbox_inches"] = "tight"
-    if fmt == "png":
-        save_kwargs["dpi"] = 300
-
-    plt.savefig(output_file, format=fmt, **save_kwargs)
-    plt.close(fig)
-    print(f"✓ Done! Poster saved as {output_file}")
+    target = Path(output_file)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = target.with_name(f".{target.name}.tmp")
+    temporary.write_bytes(content)
+    os.replace(temporary, target)
     yield "Done!"
 
+
+def _legacy_style(theme: dict[str, Any] | None, theme_name: str) -> StyleConfig:
+    if theme is None:
+        return load_style(theme_name)
+    return StyleConfig(
+        id=theme_name,
+        name=str(theme.get("name", theme_name)),
+        description=str(theme.get("description", "")),
+        background=str(theme.get("bg", "#FFFFFF")),
+        text=str(theme.get("text", "#000000")),
+        water=str(theme.get("water", "#C0C0C0")),
+        parks=str(theme.get("parks", "#F0F0F0")),
+        road_motorway=str(theme.get("road_motorway", "#0A0A0A")),
+        road_primary=str(theme.get("road_primary", "#1A1A1A")),
+        road_secondary=str(theme.get("road_secondary", "#2A2A2A")),
+        road_tertiary=str(theme.get("road_tertiary", "#3A3A3A")),
+        road_residential=str(theme.get("road_residential", "#4A4A4A")),
+        road_default=str(theme.get("road_default", "#3A3A3A")),
+        gradient=str(theme.get("gradient_color", theme.get("bg", "#FFFFFF"))),
+    )

@@ -24,4 +24,3 @@ def load_fonts() -> dict[str, str] | None:
             print(f"⚠ Font not found: {path}")
 
     return available_fonts or None
-

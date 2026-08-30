@@ -8,3 +8,11 @@ posters/
 *.pyd
 .env
 .ipynb_checkpoints/
+frontend/node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+.coverage
+htmlcov/
+.pytest_cache/
+.ruff_cache/

@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import json
-from functools import lru_cache
+import re
+from functools import cache
 from pathlib import Path
 from typing import Any
 
+from .models import StyleConfig
 from .paths import THEMES_DIR
-
 
 DEFAULT_THEME_NAME = "feature_based"
 
@@ -32,7 +33,7 @@ def _theme_path(theme_name: str) -> Path:
     return THEMES_DIR / f"{theme_name}.json"
 
 
-@lru_cache(maxsize=None)
+@cache
 def list_themes() -> tuple[str, ...]:
     """Return available theme names sorted by filename."""
     if not THEMES_DIR.exists():
@@ -40,7 +41,7 @@ def list_themes() -> tuple[str, ...]:
     return tuple(sorted(path.stem for path in THEMES_DIR.glob("*.json")))
 
 
-@lru_cache(maxsize=None)
+@cache
 def _load_theme_cached(theme_name: str) -> tuple[tuple[str, Any], ...] | None:
     path = _theme_path(theme_name)
     if not path.exists():
@@ -75,6 +76,53 @@ def load_theme(theme_name: str = DEFAULT_THEME_NAME, *, verbose: bool = True) ->
     return theme
 
 
+def load_style(theme_name: str = DEFAULT_THEME_NAME) -> StyleConfig:
+    """Load and validate a theme as a typed style configuration."""
+    raw = load_theme_info(theme_name)
+    if raw is None:
+        raise ValueError(f"Unknown style: {theme_name}")
+
+    color_keys = (
+        "bg",
+        "text",
+        "water",
+        "parks",
+        "road_motorway",
+        "road_primary",
+        "road_secondary",
+        "road_tertiary",
+        "road_residential",
+        "road_default",
+        "gradient_color",
+    )
+    missing = [key for key in color_keys if key not in raw]
+    if missing:
+        raise ValueError(f"Style '{theme_name}' is missing: {', '.join(missing)}")
+    invalid = [
+        key for key in color_keys if not isinstance(raw[key], str) or re.fullmatch(r"#[0-9a-fA-F]{6}", raw[key]) is None
+    ]
+    if invalid:
+        raise ValueError(f"Style '{theme_name}' has invalid colors: {', '.join(invalid)}")
+
+    return StyleConfig(
+        id=theme_name,
+        name=str(raw.get("name", theme_name)),
+        description=str(raw.get("description", "")),
+        preview=f"/style-previews/{theme_name}.webp",
+        background=str(raw["bg"]),
+        text=str(raw["text"]),
+        water=str(raw["water"]),
+        parks=str(raw["parks"]),
+        road_motorway=str(raw["road_motorway"]),
+        road_primary=str(raw["road_primary"]),
+        road_secondary=str(raw["road_secondary"]),
+        road_tertiary=str(raw["road_tertiary"]),
+        road_residential=str(raw["road_residential"]),
+        road_default=str(raw["road_default"]),
+        gradient=str(raw["gradient_color"]),
+    )
+
+
 def get_theme_choices(lang: str = "en") -> list[tuple[str, str]]:
     """Return UI choices as (display name, internal theme name) tuples."""
     from cities_data import translate
@@ -89,4 +137,3 @@ def get_theme_choices(lang: str = "en") -> list[tuple[str, str]]:
         else:
             choices.append((internal_name, internal_name))
     return choices
-

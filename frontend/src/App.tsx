@@ -1,0 +1,256 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Check, ChevronDown, ChevronRight, Download, Expand, Layers3, LayoutTemplate,
+  LoaderCircle, MapPin, Minus, Move, Palette, Plus, Redo2, Search, SlidersHorizontal,
+  Type, Undo2, X,
+} from 'lucide-react'
+import { exportPoster, getStyles, prepareMap, renderPreview, searchPlaces } from './api'
+import { MapViewport } from './components/MapViewport'
+import type { BBox, LayerState, LocationResult, PosterRequest, PreviewPhase, StylePreset, Typography } from './types'
+import './App.css'
+
+const DEFAULT_LOCATION: LocationResult = {
+  display_name: 'Beijing Forestry University', latitude: 40.0012, longitude: 116.3482,
+  country: 'China', region: 'Beijing', country_code: 'cn', provider: 'default',
+}
+const DEFAULT_BBOX: BBox = { west: 116.292, south: 39.955, east: 116.405, north: 40.047 }
+const DEFAULT_TYPE: Typography = {
+  title: 'BEIJING FORESTRY UNIVERSITY', subtitle: 'BEIJING', caption: '2023 — 2027', coordinates: '',
+  font_family: 'auto', title_size: 46, subtitle_size: 17, caption_size: 13, coordinate_size: 11,
+  letter_spacing: 0.08, line_height: 1.15, alignment: 'center', show_coordinates: true, show_divider: true,
+}
+const DEFAULT_LAYERS: LayerState = {
+  motorway: true, primary: true, secondary: true, residential: true, water: true, parks: true,
+}
+const PANEL_IDS = ['location', 'style', 'layout', 'type', 'layers', 'size'] as const
+type PanelId = typeof PANEL_IDS[number]
+const SIZE_OPTIONS = ['3:4', '4:5', '2:3', '1:1', '9:16', 'A4', 'A3']
+const LAYOUT_OPTIONS = ['classic', 'editorial', 'minimal', 'bottom_left', 'centered']
+const panelMeta = {
+  location: ['Location', MapPin], style: ['Style', Palette], layout: ['Layout', LayoutTemplate],
+  type: ['Type', Type], layers: ['Layers', Layers3], size: ['Size', SlidersHorizontal],
+} as const
+
+function extentFor(location: LocationResult): BBox {
+  const latSpan = 0.09
+  const lonSpan = latSpan / Math.max(Math.cos(location.latitude * Math.PI / 180), 0.25)
+  return {
+    west: Math.max(-179.999, location.longitude - lonSpan / 2), south: Math.max(-89.99, location.latitude - latSpan / 2),
+    east: Math.min(179.999, location.longitude + lonSpan / 2), north: Math.min(89.99, location.latitude + latSpan / 2),
+  }
+}
+
+function Section({ id, title, open, onToggle, children }: { id: PanelId; title: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
+  return <section className={`editor-section editor-section-${id} ${open ? 'is-open' : ''}`}>
+    <button className="section-heading" type="button" onClick={onToggle} aria-expanded={open}>
+      <span>{title}</span>{open ? <ChevronDown size={17} /> : <ChevronRight size={17} />}
+    </button>
+    {open && <div className="section-content">{children}</div>}
+  </section>
+}
+
+function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return <label className="color-field">
+    <span>{label}</span><span className="color-control"><input type="color" value={value} onChange={(event) => onChange(event.target.value)} /><code>{value.toUpperCase()}</code></span>
+  </label>
+}
+
+export default function App() {
+  const [activePanel, setActivePanel] = useState<PanelId>('style')
+  const [openPanels, setOpenPanels] = useState<Set<PanelId>>(new Set(['location', 'style', 'type']))
+  const [location, setLocation] = useState(DEFAULT_LOCATION)
+  const [bbox, setBBox] = useState(DEFAULT_BBOX)
+  const [mapZoom, setMapZoom] = useState<number | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<LocationResult[]>([])
+  const [searching, setSearching] = useState(false)
+  const [styles, setStyles] = useState<StylePreset[]>([])
+  const [styleId, setStyleId] = useState('japanese_ink')
+  const [customColors, setCustomColors] = useState<Record<string, string>>({})
+  const [typography, setTypography] = useState(DEFAULT_TYPE)
+  const [layout, setLayout] = useState('classic')
+  const [layers, setLayers] = useState(DEFAULT_LAYERS)
+  const [size, setSize] = useState('3:4')
+  const [mapDataId, setMapDataId] = useState('')
+  const [preparedSignature, setPreparedSignature] = useState('')
+  const [previewUrl, setPreviewUrl] = useState('/sample-poster.webp')
+  const [previewPhase, setPreviewPhase] = useState<PreviewPhase>('idle')
+  const [statusText, setStatusText] = useState('Preparing map data…')
+  const [error, setError] = useState('')
+  const [canvasZoom, setCanvasZoom] = useState(82)
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const previewObjectUrl = useRef<string | null>(null)
+
+  const selectedStyle = styles.find((style) => style.id === styleId)
+  const effectiveColors = useMemo(() => selectedStyle ? {
+    background: selectedStyle.background, text: selectedStyle.text, water: selectedStyle.water, parks: selectedStyle.parks,
+    road_motorway: selectedStyle.road_motorway, road_primary: selectedStyle.road_primary,
+    road_secondary: selectedStyle.road_secondary, road_tertiary: selectedStyle.road_tertiary,
+    road_residential: selectedStyle.road_residential, road_default: selectedStyle.road_default,
+    gradient: selectedStyle.gradient, ...customColors,
+  } : customColors, [customColors, selectedStyle])
+
+  const poster = useMemo<PosterRequest>(() => ({
+    location, bbox, distance_m: 10_000, zoom: mapZoom, network_type: 'all', style_id: styleId,
+    colors: customColors, typography, layout, layers, size: { preset: size },
+  }), [bbox, customColors, layers, layout, location, mapZoom, size, styleId, typography])
+  const dataSignature = useMemo(() => JSON.stringify({ location, bbox, network: poster.network_type }), [bbox, location, poster.network_type])
+  const prepareRequest = useMemo(() => ({
+    location, bbox, distance_m: 10_000, zoom: mapZoom, network_type: 'all' as const,
+    style_id: 'japanese_ink', colors: {}, typography: DEFAULT_TYPE, layout: 'classic', layers: DEFAULT_LAYERS, size: { preset: '3:4' },
+  }), [bbox, location, mapZoom])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    getStyles(controller.signal).then((items) => {
+      setStyles(items)
+      setStyleId((current) => items.some((item) => item.id === current) ? current : items[0]?.id ?? current)
+    }).catch((reason: Error) => { if (reason.name !== 'AbortError') setError(reason.message) })
+    return () => controller.abort()
+  }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => {
+      setPreviewPhase('preparing'); setStatusText('Loading streets and landscape…'); setError('')
+      prepareMap(prepareRequest, controller.signal).then((result) => {
+        setMapDataId(result.map_data_id); setPreparedSignature(dataSignature)
+        setStatusText(result.cache_hit ? 'Map data loaded from cache' : 'Map data ready')
+      }).catch((reason: Error) => {
+        if (reason.name !== 'AbortError') { setPreviewPhase('error'); setError(reason.message); setStatusText('Could not load map data') }
+      })
+    }, 650)
+    return () => { window.clearTimeout(timer); controller.abort() }
+  }, [dataSignature, prepareRequest])
+
+  useEffect(() => {
+    if (!mapDataId || preparedSignature !== dataSignature) return
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => {
+      setPreviewPhase('rendering'); setStatusText('Updating preview…'); setError('')
+      renderPreview(mapDataId, poster, controller.signal).then((blob) => {
+        if (previewObjectUrl.current) URL.revokeObjectURL(previewObjectUrl.current)
+        const url = URL.createObjectURL(blob)
+        previewObjectUrl.current = url; setPreviewUrl(url); setPreviewPhase('success'); setStatusText('Preview updated')
+      }).catch((reason: Error) => {
+        if (reason.name !== 'AbortError') { setPreviewPhase('error'); setError(reason.message); setStatusText('Preview failed') }
+      })
+    }, 250)
+    return () => { window.clearTimeout(timer); controller.abort() }
+  }, [dataSignature, mapDataId, poster, preparedSignature])
+
+  useEffect(() => () => { if (previewObjectUrl.current) URL.revokeObjectURL(previewObjectUrl.current) }, [])
+
+  const runSearch = async (event: React.FormEvent) => {
+    event.preventDefault()
+    const query = searchQuery.trim()
+    if (!query) return
+    setSearching(true); setError('')
+    try { setSearchResults(await searchPlaces(query)) }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Search failed') }
+    finally { setSearching(false) }
+  }
+
+  const chooseLocation = (result: LocationResult) => {
+    setLocation(result); setBBox(extentFor(result)); setMapZoom(null); setSearchResults([]); setSearchQuery('')
+    setTypography((current) => ({ ...current, subtitle: result.region || result.country || current.subtitle }))
+  }
+
+  const updateColor = (key: string, value: string) => setCustomColors((current) => ({ ...current, [key]: value }))
+  const togglePanel = (id: PanelId) => {
+    setActivePanel(id)
+    setOpenPanels((current) => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next })
+  }
+  const updateViewport = useCallback((nextBBox: BBox, zoom: number) => {
+    const rounded = Object.fromEntries(Object.entries(nextBBox).map(([key, value]) => [key, Number(value.toFixed(6))])) as BBox
+    setBBox((current) => {
+      const unchanged = (Object.keys(rounded) as (keyof BBox)[]).every((key) => Math.abs(current[key] - rounded[key]) < 0.00001)
+      return unchanged ? current : rounded
+    })
+    setMapZoom((current) => current !== null && Math.abs(current - zoom) < 0.01 ? current : Number(zoom.toFixed(2)))
+  }, [])
+
+  const download = async (format: 'png' | 'svg' | 'pdf', dpi: number) => {
+    if (!mapDataId || preparedSignature !== dataSignature) { setError('Wait for the map data to finish loading before export.'); return }
+    setExporting(true); setExportOpen(false); setError('')
+    try {
+      const result = await exportPoster(mapDataId, poster, format, dpi)
+      const url = URL.createObjectURL(result.blob)
+      const link = document.createElement('a'); link.href = url; link.download = result.filename; link.click()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Export failed') }
+    finally { setExporting(false) }
+  }
+
+  const panelContent: Record<PanelId, React.ReactNode> = {
+    location: <>
+      <form className="search-box" onSubmit={runSearch}>
+        <Search size={16} /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search a place…" aria-label="Search a place" />
+        {searchQuery && <button type="button" className="icon-button" onClick={() => { setSearchQuery(''); setSearchResults([]) }} aria-label="Clear search"><X size={15} /></button>}
+        <button className="search-submit" type="submit" disabled={searching}>{searching ? <LoaderCircle className="spin" size={15} /> : 'Search'}</button>
+      </form>
+      {searchResults.length > 0 && <div className="search-results">{searchResults.map((result) => <button key={`${result.latitude}-${result.longitude}-${result.display_name}`} onClick={() => chooseLocation(result)}>
+        <MapPin size={15} /><span><strong>{result.display_name}</strong><small>{[result.region, result.country].filter(Boolean).join(', ')}</small></span>
+      </button>)}</div>}
+      <div className="selected-place"><span className="pin"><MapPin size={17} /></span><span><strong>{location.display_name}</strong><small>{location.latitude.toFixed(4)}° / {location.longitude.toFixed(4)}°</small></span></div>
+      <MapViewport longitude={location.longitude} latitude={location.latitude} bbox={bbox} onViewportChange={updateViewport} />
+      <p className="field-help">Drag or zoom to set the exact area used by the poster.</p>
+    </>,
+    style: <>
+      <div className="style-grid">{styles.slice(0, 6).map((style) => <button key={style.id} className={`style-card ${style.id === styleId ? 'is-selected' : ''}`} onClick={() => { setStyleId(style.id); setCustomColors({}) }} title={style.description}>
+        <span className="style-preview" style={{ backgroundColor: style.background, color: style.road_primary }}>{style.preview && <img src={style.preview} alt="" onError={(event) => { event.currentTarget.style.display = 'none' }} />}<i /><i /><i /></span>
+        <span>{style.name}</span>{style.id === styleId && <b><Check size={12} /></b>}
+      </button>)}</div>
+      {styles.length > 6 && <label className="field"><span>More styles</span><select value={styleId} onChange={(event) => { setStyleId(event.target.value); setCustomColors({}) }}>{styles.map((style) => <option key={style.id} value={style.id}>{style.name}</option>)}</select></label>}
+      <div className="subheading"><span>Customize</span>{Object.keys(customColors).length > 0 && <button onClick={() => setCustomColors({})}>Reset</button>}</div>
+      <div className="color-list">
+        <ColorField label="Background" value={effectiveColors.background ?? '#ffffff'} onChange={(value) => updateColor('background', value)} />
+        <ColorField label="Text" value={effectiveColors.text ?? '#17191d'} onChange={(value) => updateColor('text', value)} />
+        <ColorField label="Water" value={effectiveColors.water ?? '#c9c6bf'} onChange={(value) => updateColor('water', value)} />
+        <ColorField label="Parks" value={effectiveColors.parks ?? '#eae7e1'} onChange={(value) => updateColor('parks', value)} />
+        <ColorField label="Major roads" value={effectiveColors.road_primary ?? '#222222'} onChange={(value) => updateColor('road_primary', value)} />
+        <ColorField label="Minor roads" value={effectiveColors.road_residential ?? '#777777'} onChange={(value) => updateColor('road_residential', value)} />
+      </div>
+    </>,
+    layout: <div className="choice-grid">{LAYOUT_OPTIONS.map((value) => <button key={value} className={layout === value ? 'is-selected' : ''} onClick={() => setLayout(value)}><span className={`layout-glyph ${value}`} /><strong>{value.replace('_', ' ')}</strong></button>)}</div>,
+    type: <div className="form-stack">
+      <label className="field"><span>Title</span><input value={typography.title} onChange={(event) => setTypography({ ...typography, title: event.target.value })} /></label>
+      <label className="field"><span>Subtitle</span><input value={typography.subtitle} onChange={(event) => setTypography({ ...typography, subtitle: event.target.value })} /></label>
+      <label className="field"><span>Caption</span><input value={typography.caption} onChange={(event) => setTypography({ ...typography, caption: event.target.value })} /></label>
+      <div className="two-fields"><label className="field"><span>Title size</span><input type="number" min="12" max="120" value={typography.title_size} onChange={(event) => setTypography({ ...typography, title_size: Number(event.target.value) })} /></label><label className="field"><span>Alignment</span><select value={typography.alignment} onChange={(event) => setTypography({ ...typography, alignment: event.target.value as Typography['alignment'] })}><option>left</option><option>center</option><option>right</option></select></label></div>
+      <label className="range-field"><span>Letter spacing <output>{Math.round(typography.letter_spacing * 100)}%</output></span><input type="range" min="0" max="0.3" step="0.01" value={typography.letter_spacing} onChange={(event) => setTypography({ ...typography, letter_spacing: Number(event.target.value) })} /></label>
+      <label className="check-field"><input type="checkbox" checked={typography.show_coordinates} onChange={(event) => setTypography({ ...typography, show_coordinates: event.target.checked })} />Show coordinates</label>
+      <label className="check-field"><input type="checkbox" checked={typography.show_divider} onChange={(event) => setTypography({ ...typography, show_divider: event.target.checked })} />Show divider</label>
+    </div>,
+    layers: <div className="toggle-list">{Object.entries(layers).map(([key, value]) => <label key={key}><span>{key.replace('_', ' ')}</span><input type="checkbox" checked={value} onChange={(event) => setLayers({ ...layers, [key]: event.target.checked })} /></label>)}</div>,
+    size: <><div className="size-grid">{SIZE_OPTIONS.map((value) => <button key={value} className={size === value ? 'is-selected' : ''} onClick={() => setSize(value)}><span className="size-shape" data-ratio={value} />{value}</button>)}</div><p className="field-help">Preview is optimized for speed. Export uses the selected print ratio and DPI.</p></>,
+  }
+
+  return <div className="app-shell">
+    <header className="topbar">
+      <a className="brand" href="/">MapToPoster</a>
+      <div className="topbar-tools"><button className="desktop-only icon-button" disabled aria-label="Undo"><Undo2 size={18} /></button><button className="desktop-only icon-button" disabled aria-label="Redo"><Redo2 size={18} /></button><button className="desktop-only quiet-button"><Layers3 size={17} /> Layers</button>
+        <div className="export-group"><button className="export-primary" onClick={() => download('png', 300)} disabled={exporting}>{exporting ? <LoaderCircle className="spin" size={16} /> : <Download size={16} />}<span>Export</span></button><button className="export-toggle" onClick={() => setExportOpen(!exportOpen)} aria-label="Export options"><ChevronDown size={15} /></button>
+          {exportOpen && <div className="export-menu"><button onClick={() => download('png', 150)}>PNG · Preview</button><button onClick={() => download('png', 300)}>PNG · Print 300 DPI</button><button onClick={() => download('svg', 300)}>SVG · Vector</button><button onClick={() => download('pdf', 300)}>PDF · Print</button></div>}
+        </div>
+      </div>
+    </header>
+
+    <aside className="sidebar">{PANEL_IDS.map((id) => <Section key={id} id={id} title={panelMeta[id][0]} open={openPanels.has(id)} onToggle={() => togglePanel(id)}>{panelContent[id]}</Section>)}</aside>
+
+    <nav className="mobile-tabs" aria-label="Editor panels">{PANEL_IDS.map((id) => { const Icon = panelMeta[id][1]; return <button key={id} className={activePanel === id ? 'is-active' : ''} onClick={() => setActivePanel(id)}><Icon size={19} /><span>{panelMeta[id][0]}</span></button> })}</nav>
+    <section className="mobile-sheet"><div className="mobile-sheet-heading"><strong>{panelMeta[activePanel][0]}</strong><span>Poster settings</span></div>{panelContent[activePanel]}</section>
+
+    <main className="workspace">
+      <div className="canvas-stage">
+        <div className="poster-frame" style={{ transform: `scale(${canvasZoom / 100})`, aspectRatio: size === '1:1' ? '1 / 1' : size === '4:5' ? '4 / 5' : size === '2:3' ? '2 / 3' : size === '9:16' ? '9 / 16' : size === 'A4' || size === 'A3' ? '210 / 297' : '3 / 4' }}>
+          <img src={previewUrl} alt={`Poster preview for ${location.display_name}`} />
+          {(previewPhase === 'preparing' || previewPhase === 'rendering') && <div className="preview-loading"><LoaderCircle className="spin" /><span>{statusText}</span></div>}
+        </div>
+      </div>
+      <div className={`preview-status ${previewPhase}`} role="status">{previewPhase === 'success' ? <Check size={15} /> : previewPhase === 'error' ? <X size={15} /> : <LoaderCircle className={previewPhase === 'idle' ? '' : 'spin'} size={15} />}<span>{error || statusText}</span></div>
+      <div className="canvas-toolbar"><div className="tool-group"><button aria-label="Pan"><Move size={17} /></button><button aria-label="Fit canvas" onClick={() => setCanvasZoom(82)}><Expand size={17} /></button></div><div className="tool-group zoom-controls"><button onClick={() => setCanvasZoom((value) => Math.max(35, value - 10))} aria-label="Zoom out"><Minus size={16} /></button><output>{canvasZoom}%</output><button onClick={() => setCanvasZoom((value) => Math.min(140, value + 10))} aria-label="Zoom in"><Plus size={16} /></button></div><button className="fit-button" onClick={() => setCanvasZoom(82)}>Fit</button></div>
+    </main>
+  </div>
+}

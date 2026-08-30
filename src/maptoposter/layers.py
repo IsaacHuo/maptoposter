@@ -24,11 +24,7 @@ LAYER_KEYS = [layer.key for layer in LAYERS]
 LAYERS_EN = [layer.en for layer in LAYERS]
 LAYERS_CN = [layer.cn for layer in LAYERS]
 
-_LABEL_TO_KEY = {
-    label: layer.key
-    for layer in LAYERS
-    for label in (layer.en, layer.cn)
-}
+_LABEL_TO_KEY = {label: layer.key for layer in LAYERS for label in (layer.en, layer.cn)}
 _KEY_TO_LABEL = {
     "en": {layer.key: layer.en for layer in LAYERS},
     "cn": {layer.key: layer.cn for layer in LAYERS},
@@ -63,4 +59,3 @@ def selected_layer_flags(selected_labels: list[str] | tuple[str, ...] | None) ->
         "show_water": "water" in selected_keys,
         "show_parks": "parks" in selected_keys,
     }
-

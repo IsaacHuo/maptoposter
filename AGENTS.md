@@ -4,11 +4,12 @@ This file provides essential information for agentic coding agents working in th
 
 ## Project Overview
 
-A Python-based web application that generates beautiful, minimalist map posters for any city in the world. Built with Gradio for the web interface, OSMnx for mapping data, and Matplotlib for rendering.
+A Python-based web application that generates beautiful, minimalist map posters for any place in the world. The product UI is React/Vite over FastAPI, while OSMnx and Matplotlib power the map pipeline.
 
 **Tech Stack:**
 - Python 3.12+
-- Gradio (web UI)
+- React + Vite (primary web UI)
+- FastAPI (application/API layer)
 - OSMnx (street network analysis)
 - Matplotlib (map rendering)
 - GeoPandas (geospatial data)
@@ -18,41 +19,42 @@ A Python-based web application that generates beautiful, minimalist map posters 
 
 ### Environment Setup
 ```bash
-# Install dependencies with uv (recommended)
-uv sync
-
-# Alternative: with pip
-pip install -r requirements.txt  # (if available)
+# Install dependencies with uv
+uv sync --all-groups
+corepack pnpm --dir frontend install --frozen-lockfile
 ```
 
 ### Running the Application
 ```bash
-# Start the web interface
+# Start the API
 uv run python app.py
+
+# Start the frontend dev server in another terminal
+corepack pnpm --dir frontend dev
 
 # Or use the restart script (handles port conflicts)
 bash restart.sh
 
-# The application runs on http://localhost:7860
+# Development UI: http://localhost:5173
+# Production-style UI/API: http://localhost:7860 after building frontend
 ```
 
 ### Running Tests
 ```bash
-# Run the main test file
-python test_logic.py
+# Run the full pytest suite
+uv run pytest
 
 # Run individual test functions
-python -c "from test_logic import test_china_hierarchy; test_china_hierarchy()"
-python -c "from test_logic import test_manual_coordinates; test_manual_coordinates()"
+uv run pytest test_logic.py -k "china_hierarchy or manual_coordinates"
 ```
 
 ### Development Utilities
 ```bash
 # Verify city data integrity
-python verify_data.py
+uv run python verify_data.py
 
 # Create map poster directly (CLI)
-python create_map_poster.py --city "Beijing" --theme japanese_ink --output-format png
+uv run python create_map_poster.py --city "Beijing" --theme japanese_ink --output-format png
 ```
 
 ## Code Style Guidelines
@@ -72,7 +74,7 @@ import sys
 from datetime import datetime
 
 # Third-party imports next
-import gradio as gr
+from fastapi import FastAPI
 import osmnx as ox
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -119,12 +121,17 @@ LAYER_KEYS = ["motorway", "primary", "secondary", "water", "parks"]
 
 ```
 maptoposter/
-├── app.py                 # Main Gradio web interface
+├── app.py                 # FastAPI + built frontend entry point
+├── Dockerfile             # Hugging Face production container
 ├── create_map_poster.py   # Core poster generation logic
 ├── cities_data.py         # City/province/district data management
 ├── test_logic.py          # Test suite for data logic
 ├── verify_data.py         # Data integrity verification
-├── src/maptoposter/       # Package structure (minimal)
+├── backend/               # FastAPI schemas and endpoints
+├── frontend/              # React/Vite editor
+├── docs/                  # Deployment and maintenance guides
+├── .github/workflows/     # Validation and Space publishing
+├── src/maptoposter/       # Typed core, cache, renderer, resources
 ├── themes/                # JSON theme configuration files
 ├── fonts/                 # Font files (Chinese and English)
 ├── posters/               # Generated poster outputs
@@ -156,44 +163,28 @@ if not os.path.exists(THEMES_DIR):
     return []
 ```
 
-### Gradio Interface Patterns
+### FastAPI Endpoint Patterns
 ```python
-def create_interface():
-    with gr.Blocks() as interface:
-        gr.Markdown("# City Map Poster Generator")
-        
-        with gr.Row():
-            city_dropdown = gr.Dropdown(label="City", choices=[])
-            theme_dropdown = gr.Dropdown(label="Theme", choices=[])
-        
-        generate_btn = gr.Button("Generate Poster")
-        output_gallery = gr.Gallery()
-        
-        # Event handlers
-        generate_btn.click(
-            fn=generate_poster,
-            inputs=[city_dropdown, theme_dropdown],
-            outputs=output_gallery
-        )
-    
-    return interface
+@app.get("/api/v1/health")
+def health() -> dict[str, str]:
+    """Return service readiness and version information."""
+    return {"status": "ok", "version": __version__}
 ```
 
 ## Testing Guidelines
 
 ### Test Structure
-- Use simple assertion-based testing (no external testing framework)
-- Group related tests in functions (e.g., `test_china_hierarchy()`)
+- Use pytest tests with focused fixtures and mocks
+- Group related tests in modules/functions (e.g., `test_china_hierarchy()`)
 - Test both data integrity and coordinate retrieval
 - Include Chinese characters in test data
 
 ### Test Execution
 ```bash
 # Run all tests
-python test_logic.py
+uv run pytest
 
-# Expected output for passing tests:
-# ✅ Data logic tests passed!
+# The exact count grows with the maintained suite; require zero failures.
 ```
 
 ## Error Handling
@@ -263,5 +254,6 @@ Themes are JSON files in the `themes/` directory with the following structure:
 - **Port Management**: Default port is 7860. Use `restart.sh` to handle conflicts
 - **Output Directory**: Generated posters go to `posters/` (auto-created if needed)
 - **Debugging**: Use print statements with emoji indicators for important events
-- **Code Organization**: Keep the main Gradio interface in `app.py`, core logic in separate modules
+- **Code Organization**: Keep API routes in `backend/`, UI code in `frontend/`, and domain logic in `src/maptoposter/`
+- **Deployment**: GitHub `main` is mirrored to the Docker Space only after CI validation
 - **Dependencies**: The project uses `uv` for dependency management. Lock file is `uv.lock`

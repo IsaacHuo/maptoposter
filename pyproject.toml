@@ -1,45 +1,59 @@
 [project]
 name = "maptoposter"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.2.0"
+description = "Turn any place into a piece of art."
 readme = "README.md"
 authors = [
-    { name = "IsaacHuo", email = "“2210286979@qq.com" }
+    { name = "IsaacHuo", email = "2210286979@qq.com" }
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "certifi==2026.1.4",
-    "charset-normalizer==3.4.4",
-    "contourpy==1.3.3",
-    "cycler==0.12.1",
-    "fonttools==4.61.1",
-    "geographiclib==2.1",
-    "geopandas==1.1.2",
-    "geopy==2.4.1",
-    "idna==3.11",
-    "kiwisolver==1.4.9",
-    "matplotlib==3.10.8",
-    "networkx==3.6.1",
-    "numpy==2.4.0",
-    "osmnx==2.0.7",
-    "packaging==25.0",
-    "pandas==2.3.3",
-    "pillow==12.1.0",
-    "pyogrio==0.12.1",
-    "pyparsing==3.3.1",
-    "pyproj==3.7.2",
-    "python-dateutil==2.9.0.post0",
-    "pytz==2025.2",
-    "requests==2.32.5",
-    "scipy==1.16.3",
-    "shapely==2.1.2",
-    "six==1.17.0",
-    "tqdm==4.67.1",
-    "tzdata==2025.3",
-    "urllib3==2.6.3",
-    "gradio",
+    "fastapi>=0.128,<1",
+    "filelock>=3.20,<4",
+    "geopandas>=1.1,<2",
+    "geopy>=2.4,<3",
+    "matplotlib>=3.10,<4",
+    "numpy>=2.4,<3",
+    "osmnx>=2.0.7,<3",
+    "pandas>=2.3,<3",
+    "pillow>=12,<13",
+    "pyogrio>=0.12,<1",
+    "pyproj>=3.7,<4",
+    "shapely>=2.1,<3",
+    "uvicorn>=0.40,<1",
+]
+
+[project.scripts]
+maptoposter = "maptoposter.cli:main"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28,<1",
+    "pyright>=1.1.400,<2",
+    "pytest>=8.4,<9",
+    "pytest-cov>=6.2,<7",
+    "pytest-mock>=3.15,<4",
+    "ruff>=0.12,<1",
 ]
 
 [build-system]
-requires = ["uv_build>=0.9.24,<0.10.0"]
+requires = ["uv_build>=0.12.7,<0.13.0"]
 build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests", "test_logic.py"]
+pythonpath = ["."]
+markers = ["network: tests that call public map services"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["cities_data.py", "verify_data.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pyright]
+include = ["src/maptoposter", "backend"]
+typeCheckingMode = "basic"
