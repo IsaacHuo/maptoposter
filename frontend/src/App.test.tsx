@@ -1,5 +1,6 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { prepareMap, renderPreview } from './api'
 import App from './App'
 
 vi.mock('./components/MapViewport', () => ({
@@ -17,6 +18,8 @@ vi.mock('./api', () => ({
 }))
 
 describe('editor shell', () => {
+  beforeEach(() => vi.clearAllMocks())
+
   it('loads styles and exposes product controls', async () => {
     render(<App />)
     expect(screen.getByText('MapToPoster')).toBeInTheDocument()
@@ -45,5 +48,21 @@ describe('editor shell', () => {
     expect(screen.getAllByText('92%').length).toBeGreaterThan(0)
     fireEvent.click(screen.getAllByRole('button', { name: 'Fit' })[0])
     expect(screen.getAllByText('82%').length).toBeGreaterThan(0)
+  })
+
+  it('waits for an explicit generation request and reports progress', async () => {
+    let resolvePrepare!: (value: { map_data_id: string; cache_hit: boolean }) => void
+    vi.mocked(prepareMap).mockReturnValueOnce(new Promise((resolve) => { resolvePrepare = resolve }))
+    render(<App />)
+    await waitFor(() => expect(screen.getAllByText('Japanese Ink').length).toBeGreaterThan(0))
+
+    expect(prepareMap).not.toHaveBeenCalled()
+    fireEvent.click(screen.getAllByRole('button', { name: /Generate preview/i })[0])
+    expect(prepareMap).toHaveBeenCalledTimes(1)
+    expect(screen.getAllByRole('progressbar').length).toBeGreaterThan(0)
+
+    await act(async () => resolvePrepare({ map_data_id: 'a'.repeat(64), cache_hit: false }))
+    await waitFor(() => expect(renderPreview).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(screen.getAllByText(/Preview ready in/).length).toBeGreaterThan(0))
   })
 })

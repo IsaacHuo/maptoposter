@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(os.getenv("MAPTOPOSTER_PROJECT_ROOT", Path(__file__).resolve().parents[2]))
 PACKAGE_DIR = Path(__file__).resolve().parent
 RESOURCES_DIR = PACKAGE_DIR / "resources"
 THEMES_DIR = Path(os.getenv("MAPTOPOSTER_THEMES_DIR", RESOURCES_DIR / "themes"))

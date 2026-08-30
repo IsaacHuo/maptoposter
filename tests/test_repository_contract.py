@@ -33,6 +33,8 @@ def test_hugging_face_docker_contract() -> None:
     assert "node:22-bookworm-slim AS frontend-builder" in dockerfile
     assert "python:3.12-slim-bookworm AS runtime" in dockerfile
     assert "COPY --from=ghcr.io/astral-sh/uv:0.12.7 /uv /uvx /bin/" in dockerfile
+    assert "MAPTOPOSTER_PROJECT_ROOT=/app" in dockerfile
+    assert "MAPTOPOSTER_FONTS_DIR=/app/fonts" in dockerfile
     assert "USER 1000:1000" in dockerfile
     assert '"--port", "7860"' in dockerfile
     assert '"--workers", "1"' in dockerfile

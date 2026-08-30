@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import pytest
@@ -59,6 +61,14 @@ def test_renderer_supports_preview_and_vector_exports(map_data, poster_config) -
     assert b"<svg" in svg[:500]
     assert pdf.startswith(b"%PDF")
     assert plt.get_fignums() == []
+
+
+def test_renderer_selects_bundled_font_for_chinese_text() -> None:
+    fonts = PosterRenderer._fonts("广州")
+
+    assert fonts["is_cjk"] is True
+    assert Path(fonts["bold"].get_file()).name == "HYWenRunSongYunU.ttf"
+    assert Path(fonts["regular"].get_file()).name == "HYWenRunSongYunU.ttf"
 
 
 def replace_layout(config, layout: LayoutPreset):

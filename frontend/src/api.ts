@@ -45,11 +45,12 @@ export async function renderPreview(mapDataId: string, poster: PosterRequest, si
   return response.blob()
 }
 
-export async function exportPoster(mapDataId: string, poster: PosterRequest, format: 'png' | 'svg' | 'pdf', dpi: number): Promise<{ blob: Blob; filename: string }> {
+export async function exportPoster(mapDataId: string, poster: PosterRequest, format: 'png' | 'svg' | 'pdf', dpi: number, signal?: AbortSignal): Promise<{ blob: Blob; filename: string }> {
   const response = await fetch(`${API_ROOT}/posters/export`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ map_data_id: mapDataId, poster, format, dpi }),
+    signal,
   })
   if (!response.ok) throw new Error(await readError(response))
   const disposition = response.headers.get('Content-Disposition') ?? ''

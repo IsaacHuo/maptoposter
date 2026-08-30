@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Check, ChevronDown, ChevronRight, Download, Expand, Layers3, LayoutTemplate,
-  LoaderCircle, MapPin, Minus, Move, Palette, Plus, Redo2, Search, SlidersHorizontal,
+  LoaderCircle, MapPin, Minus, Move, Palette, Play, Plus, Redo2, Search, SlidersHorizontal,
   Type, Undo2, X,
 } from 'lucide-react'
 import { exportPoster, getStyles, prepareMap, renderPreview, searchPlaces } from './api'
@@ -55,6 +55,39 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
   </label>
 }
 
+function ProgressFeedback({ value, label, elapsed }: { value: number; label: string; elapsed: number }) {
+  const rounded = Math.round(value)
+  return <div className="progress-feedback">
+    <div className="progress-meta"><span>{label}</span><span>{rounded}% · {elapsed}s</span></div>
+    <div className="progress-track" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={rounded}>
+      <span className="progress-fill" style={{ width: `${rounded}%` }} />
+    </div>
+  </div>
+}
+
+function GenerateControl({ phase, stale, disabled, onGenerate }: {
+  phase: PreviewPhase
+  stale: boolean
+  disabled: boolean
+  onGenerate: () => void
+}) {
+  const busy = phase === 'preparing' || phase === 'rendering'
+  const label = phase === 'preparing'
+    ? 'Fetching map data…'
+    : phase === 'rendering'
+      ? 'Rendering preview…'
+      : stale
+        ? 'Generate preview'
+        : 'Generate again'
+  return <div className="generate-footer">
+    <button className="generate-button" type="button" onClick={onGenerate} disabled={disabled}>
+      {busy ? <LoaderCircle className="spin" size={17} /> : <Play size={16} fill="currentColor" />}
+      <span>{label}</span>
+    </button>
+    <small>Map data is fetched only after you start generation.</small>
+  </div>
+}
+
 export default function App() {
   const [activePanel, setActivePanel] = useState<PanelId>('style')
   const [openPanels, setOpenPanels] = useState<Set<PanelId>>(new Set(['location', 'style', 'type']))
@@ -73,14 +106,24 @@ export default function App() {
   const [size, setSize] = useState('3:4')
   const [mapDataId, setMapDataId] = useState('')
   const [preparedSignature, setPreparedSignature] = useState('')
+  const [renderedSignature, setRenderedSignature] = useState('')
   const [previewUrl, setPreviewUrl] = useState('/sample-poster.webp')
   const [previewPhase, setPreviewPhase] = useState<PreviewPhase>('idle')
-  const [statusText, setStatusText] = useState('Preparing map data…')
+  const [statusText, setStatusText] = useState('Adjust the settings, then generate a preview.')
+  const [generationProgress, setGenerationProgress] = useState(0)
+  const [generationElapsed, setGenerationElapsed] = useState(0)
   const [error, setError] = useState('')
   const [canvasZoom, setCanvasZoom] = useState(82)
   const [exportOpen, setExportOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [exportProgress, setExportProgress] = useState(0)
+  const [exportElapsed, setExportElapsed] = useState(0)
+  const [exportStatus, setExportStatus] = useState('')
   const previewObjectUrl = useRef<string | null>(null)
+  const generationController = useRef<AbortController | null>(null)
+  const exportController = useRef<AbortController | null>(null)
+  const generationStartedAt = useRef(0)
+  const exportStartedAt = useRef(0)
 
   const selectedStyle = styles.find((style) => style.id === styleId)
   const effectiveColors = useMemo(() => selectedStyle ? {
@@ -95,11 +138,14 @@ export default function App() {
     location, bbox, distance_m: 10_000, zoom: mapZoom, network_type: 'all', style_id: styleId,
     colors: customColors, typography, layout, layers, size: { preset: size },
   }), [bbox, customColors, layers, layout, location, mapZoom, size, styleId, typography])
+  const posterSignature = useMemo(() => JSON.stringify(poster), [poster])
   const dataSignature = useMemo(() => JSON.stringify({ location, bbox, network: poster.network_type }), [bbox, location, poster.network_type])
   const prepareRequest = useMemo(() => ({
     location, bbox, distance_m: 10_000, zoom: mapZoom, network_type: 'all' as const,
     style_id: 'japanese_ink', colors: {}, typography: DEFAULT_TYPE, layout: 'classic', layers: DEFAULT_LAYERS, size: { preset: '3:4' },
   }), [bbox, location, mapZoom])
+  const isGenerating = previewPhase === 'preparing' || previewPhase === 'rendering'
+  const previewStale = renderedSignature !== posterSignature
 
   useEffect(() => {
     const controller = new AbortController()
@@ -111,36 +157,31 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    const controller = new AbortController()
-    const timer = window.setTimeout(() => {
-      setPreviewPhase('preparing'); setStatusText('Loading streets and landscape…'); setError('')
-      prepareMap(prepareRequest, controller.signal).then((result) => {
-        setMapDataId(result.map_data_id); setPreparedSignature(dataSignature)
-        setStatusText(result.cache_hit ? 'Map data loaded from cache' : 'Map data ready')
-      }).catch((reason: Error) => {
-        if (reason.name !== 'AbortError') { setPreviewPhase('error'); setError(reason.message); setStatusText('Could not load map data') }
+    if (!isGenerating) return
+    const timer = window.setInterval(() => {
+      setGenerationElapsed(Math.floor((Date.now() - generationStartedAt.current) / 1000))
+      setGenerationProgress((current) => {
+        const ceiling = previewPhase === 'preparing' ? 58 : 94
+        return Math.min(ceiling, current + Math.max(0.6, (ceiling - current) * 0.04))
       })
-    }, 650)
-    return () => { window.clearTimeout(timer); controller.abort() }
-  }, [dataSignature, prepareRequest])
+    }, 400)
+    return () => window.clearInterval(timer)
+  }, [isGenerating, previewPhase])
 
   useEffect(() => {
-    if (!mapDataId || preparedSignature !== dataSignature) return
-    const controller = new AbortController()
-    const timer = window.setTimeout(() => {
-      setPreviewPhase('rendering'); setStatusText('Updating preview…'); setError('')
-      renderPreview(mapDataId, poster, controller.signal).then((blob) => {
-        if (previewObjectUrl.current) URL.revokeObjectURL(previewObjectUrl.current)
-        const url = URL.createObjectURL(blob)
-        previewObjectUrl.current = url; setPreviewUrl(url); setPreviewPhase('success'); setStatusText('Preview updated')
-      }).catch((reason: Error) => {
-        if (reason.name !== 'AbortError') { setPreviewPhase('error'); setError(reason.message); setStatusText('Preview failed') }
-      })
-    }, 250)
-    return () => { window.clearTimeout(timer); controller.abort() }
-  }, [dataSignature, mapDataId, poster, preparedSignature])
+    if (!exporting) return
+    const timer = window.setInterval(() => {
+      setExportElapsed(Math.floor((Date.now() - exportStartedAt.current) / 1000))
+      setExportProgress((current) => Math.min(94, current + Math.max(0.6, (94 - current) * 0.04)))
+    }, 400)
+    return () => window.clearInterval(timer)
+  }, [exporting])
 
-  useEffect(() => () => { if (previewObjectUrl.current) URL.revokeObjectURL(previewObjectUrl.current) }, [])
+  useEffect(() => () => {
+    generationController.current?.abort()
+    exportController.current?.abort()
+    if (previewObjectUrl.current) URL.revokeObjectURL(previewObjectUrl.current)
+  }, [])
 
   const runSearch = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -171,16 +212,63 @@ export default function App() {
     setMapZoom((current) => current !== null && Math.abs(current - zoom) < 0.01 ? current : Number(zoom.toFixed(2)))
   }, [])
 
+  const runGeneration = async () => {
+    const requestPoster = poster
+    const requestPosterSignature = posterSignature
+    const requestDataSignature = dataSignature
+    const controller = new AbortController()
+    generationController.current?.abort()
+    generationController.current = controller
+    generationStartedAt.current = Date.now()
+    setGenerationElapsed(0); setGenerationProgress(4); setPreviewPhase('preparing')
+    setStatusText('Fetching streets, water, and parks…'); setError('')
+    try {
+      let currentMapDataId = mapDataId
+      if (!currentMapDataId || preparedSignature !== requestDataSignature) {
+        const result = await prepareMap(prepareRequest, controller.signal)
+        currentMapDataId = result.map_data_id
+        setMapDataId(currentMapDataId); setPreparedSignature(requestDataSignature)
+        setStatusText(result.cache_hit ? 'Map data loaded from cache. Rendering preview…' : 'Map data ready. Rendering preview…')
+      } else {
+        setStatusText('Using prepared map data. Rendering preview…')
+      }
+      setGenerationProgress(68); setPreviewPhase('rendering')
+      const blob = await renderPreview(currentMapDataId, requestPoster, controller.signal)
+      if (previewObjectUrl.current) URL.revokeObjectURL(previewObjectUrl.current)
+      const url = URL.createObjectURL(blob)
+      previewObjectUrl.current = url
+      setPreviewUrl(url); setRenderedSignature(requestPosterSignature); setGenerationProgress(100); setPreviewPhase('success')
+      setStatusText(`Preview ready in ${((Date.now() - generationStartedAt.current) / 1000).toFixed(1)}s`)
+    } catch (reason) {
+      if (reason instanceof Error && reason.name === 'AbortError') return
+      setPreviewPhase('error'); setError(reason instanceof Error ? reason.message : 'Preview failed')
+      setStatusText('Could not generate the preview')
+    } finally {
+      if (generationController.current === controller) generationController.current = null
+    }
+  }
+
   const download = async (format: 'png' | 'svg' | 'pdf', dpi: number) => {
     if (!mapDataId || preparedSignature !== dataSignature) { setError('Wait for the map data to finish loading before export.'); return }
-    setExporting(true); setExportOpen(false); setError('')
+    const controller = new AbortController()
+    exportController.current?.abort()
+    exportController.current = controller
+    exportStartedAt.current = Date.now()
+    setExporting(true); setExportProgress(5); setExportElapsed(0); setExportOpen(false); setError('')
+    setExportStatus(`Rendering ${format.toUpperCase()} at ${dpi} DPI…`)
     try {
-      const result = await exportPoster(mapDataId, poster, format, dpi)
+      const result = await exportPoster(mapDataId, poster, format, dpi, controller.signal)
+      setExportProgress(100)
       const url = URL.createObjectURL(result.blob)
       const link = document.createElement('a'); link.href = url; link.download = result.filename; link.click()
       window.setTimeout(() => URL.revokeObjectURL(url), 1000)
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Export failed') }
-    finally { setExporting(false) }
+      setStatusText(`${format.toUpperCase()} downloaded in ${((Date.now() - exportStartedAt.current) / 1000).toFixed(1)}s`)
+    } catch (reason) {
+      if (!(reason instanceof Error && reason.name === 'AbortError')) setError(reason instanceof Error ? reason.message : 'Export failed')
+    } finally {
+      if (exportController.current === controller) exportController.current = null
+      setExporting(false)
+    }
   }
 
   const panelContent: Record<PanelId, React.ReactNode> = {
@@ -231,25 +319,31 @@ export default function App() {
     <header className="topbar">
       <a className="brand" href="/">MapToPoster</a>
       <div className="topbar-tools"><button className="desktop-only icon-button" disabled aria-label="Undo"><Undo2 size={18} /></button><button className="desktop-only icon-button" disabled aria-label="Redo"><Redo2 size={18} /></button><button className="desktop-only quiet-button"><Layers3 size={17} /> Layers</button>
-        <div className="export-group"><button className="export-primary" onClick={() => download('png', 300)} disabled={exporting}>{exporting ? <LoaderCircle className="spin" size={16} /> : <Download size={16} />}<span>Export</span></button><button className="export-toggle" onClick={() => setExportOpen(!exportOpen)} aria-label="Export options"><ChevronDown size={15} /></button>
+        <div className="export-group"><button className="export-primary" onClick={() => download('png', 300)} disabled={exporting || isGenerating}>{exporting ? <LoaderCircle className="spin" size={16} /> : <Download size={16} />}<span>{exporting ? `${Math.round(exportProgress)}%` : 'Export'}</span></button><button className="export-toggle" onClick={() => setExportOpen(!exportOpen)} disabled={exporting || isGenerating} aria-label="Export options"><ChevronDown size={15} /></button>
           {exportOpen && <div className="export-menu"><button onClick={() => download('png', 150)}>PNG · Preview</button><button onClick={() => download('png', 300)}>PNG · Print 300 DPI</button><button onClick={() => download('svg', 300)}>SVG · Vector</button><button onClick={() => download('pdf', 300)}>PDF · Print</button></div>}
         </div>
       </div>
     </header>
 
-    <aside className="sidebar">{PANEL_IDS.map((id) => <Section key={id} id={id} title={panelMeta[id][0]} open={openPanels.has(id)} onToggle={() => togglePanel(id)}>{panelContent[id]}</Section>)}</aside>
+    <aside className="sidebar">
+      {PANEL_IDS.map((id) => <Section key={id} id={id} title={panelMeta[id][0]} open={openPanels.has(id)} onToggle={() => togglePanel(id)}>{panelContent[id]}</Section>)}
+      <GenerateControl phase={previewPhase} stale={previewStale} disabled={isGenerating || exporting} onGenerate={runGeneration} />
+    </aside>
 
     <nav className="mobile-tabs" aria-label="Editor panels">{PANEL_IDS.map((id) => { const Icon = panelMeta[id][1]; return <button key={id} className={activePanel === id ? 'is-active' : ''} onClick={() => setActivePanel(id)}><Icon size={19} /><span>{panelMeta[id][0]}</span></button> })}</nav>
-    <section className="mobile-sheet"><div className="mobile-sheet-heading"><strong>{panelMeta[activePanel][0]}</strong><span>Poster settings</span></div>{panelContent[activePanel]}</section>
+    <section className="mobile-sheet"><div className="mobile-sheet-heading"><strong>{panelMeta[activePanel][0]}</strong><span>Poster settings</span></div>{panelContent[activePanel]}<GenerateControl phase={previewPhase} stale={previewStale} disabled={isGenerating || exporting} onGenerate={runGeneration} /></section>
 
     <main className="workspace">
       <div className="canvas-stage">
         <div className="poster-frame" style={{ transform: `scale(${canvasZoom / 100})`, aspectRatio: size === '1:1' ? '1 / 1' : size === '4:5' ? '4 / 5' : size === '2:3' ? '2 / 3' : size === '9:16' ? '9 / 16' : size === 'A4' || size === 'A3' ? '210 / 297' : '3 / 4' }}>
           <img src={previewUrl} alt={`Poster preview for ${location.display_name}`} />
-          {(previewPhase === 'preparing' || previewPhase === 'rendering') && <div className="preview-loading"><LoaderCircle className="spin" /><span>{statusText}</span></div>}
+          {isGenerating && <div className="preview-loading"><LoaderCircle className="spin" /><ProgressFeedback value={generationProgress} label={statusText} elapsed={generationElapsed} /></div>}
         </div>
       </div>
-      <div className={`preview-status ${previewPhase}`} role="status">{previewPhase === 'success' ? <Check size={15} /> : previewPhase === 'error' ? <X size={15} /> : <LoaderCircle className={previewPhase === 'idle' ? '' : 'spin'} size={15} />}<span>{error || statusText}</span></div>
+      <div className={`preview-status ${error ? 'error' : previewPhase}`} role="status">
+        <div className="preview-status-copy">{exporting || isGenerating ? <LoaderCircle className="spin" size={15} /> : previewPhase === 'success' && !previewStale ? <Check size={15} /> : previewPhase === 'error' ? <X size={15} /> : <Play size={13} />}<span>{exporting ? exportStatus : error || (previewPhase === 'success' && previewStale ? 'Settings changed. Generate again to update the preview.' : statusText)}</span></div>
+        {exporting ? <ProgressFeedback value={exportProgress} label={exportStatus} elapsed={exportElapsed} /> : isGenerating ? <ProgressFeedback value={generationProgress} label={statusText} elapsed={generationElapsed} /> : null}
+      </div>
       <div className="canvas-toolbar"><div className="tool-group"><button aria-label="Pan"><Move size={17} /></button><button aria-label="Fit canvas" onClick={() => setCanvasZoom(82)}><Expand size={17} /></button></div><div className="tool-group zoom-controls"><button onClick={() => setCanvasZoom((value) => Math.max(35, value - 10))} aria-label="Zoom out"><Minus size={16} /></button><output>{canvasZoom}%</output><button onClick={() => setCanvasZoom((value) => Math.min(140, value + 10))} aria-label="Zoom in"><Plus size={16} /></button></div><button className="fit-button" onClick={() => setCanvasZoom(82)}>Fit</button></div>
     </main>
   </div>
