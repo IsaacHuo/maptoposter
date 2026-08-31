@@ -5,6 +5,89 @@ from __future__ import annotations
 import re
 
 
+def resolve_text_positions(
+    *,
+    figure_height: float,
+    text_rect_y: float,
+    text_rect_height: float,
+    title_y: float,
+    subtitle_y: float,
+    caption_y: float,
+    coordinates_y: float,
+    title_size: float,
+    subtitle_size: float,
+    caption_size: float,
+    coordinate_size: float,
+    has_title: bool,
+    has_subtitle: bool,
+    has_caption: bool,
+    show_coordinates: bool,
+) -> dict[str, float]:
+    """Keep poster text boxes separated when the figure becomes short and wide.
+
+    Layout coordinates are normalized to the figure. Font sizes are points, so
+    their normalized height changes with the physical figure height. Computing
+    the stack from those two units prevents the fixed portrait coordinates from
+    causing overlap in landscape posters.
+    """
+    if figure_height <= 0:
+        raise ValueError("Figure height must be greater than zero.")
+
+    gap = 0.012
+
+    def normalized_height(size: float) -> float:
+        return size / 72 / figure_height
+
+    heights = {
+        "title": normalized_height(title_size),
+        "subtitle": normalized_height(subtitle_size),
+        "caption": normalized_height(caption_size),
+        "coordinates": normalized_height(coordinate_size),
+    }
+    positions = {
+        "title": title_y,
+        "subtitle": subtitle_y,
+        "caption": caption_y,
+        "coordinates": coordinates_y,
+    }
+    active = [
+        ("title", title_y, has_title),
+        ("subtitle", subtitle_y, has_subtitle),
+        ("caption", caption_y, has_caption),
+        ("coordinates", coordinates_y, show_coordinates),
+    ]
+
+    previous_key: str | None = None
+    for key, desired, enabled in active:
+        if not enabled:
+            continue
+        if previous_key is not None:
+            desired = min(
+                desired,
+                positions[previous_key]
+                - heights[previous_key] / 2
+                - gap
+                - heights[key] / 2,
+            )
+        positions[key] = desired
+        previous_key = key
+
+    if has_title:
+        top_limit = text_rect_y + text_rect_height - heights["title"] / 2
+        positions["title"] = min(positions["title"], top_limit)
+
+    if has_title and has_subtitle:
+        title_bottom = positions["title"] - heights["title"] / 2
+        subtitle_top = positions["subtitle"] + heights["subtitle"] / 2
+        positions["divider"] = (title_bottom + subtitle_top) / 2
+    elif has_title:
+        positions["divider"] = positions["title"] - heights["title"] / 2 - gap / 2
+    else:
+        positions["divider"] = subtitle_y
+
+    return positions
+
+
 def has_chinese(text: str) -> bool:
     """Return whether text contains a CJK Unified Ideograph."""
     return any("\u4e00" <= char <= "\u9fff" for char in text)

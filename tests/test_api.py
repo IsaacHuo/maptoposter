@@ -54,6 +54,25 @@ def test_prepare_preview_and_export_contract(monkeypatch, tmp_path) -> None:
     assert "beijing-japanese-ink" in exported.headers["content-disposition"]
 
 
+def test_prepare_keeps_selected_bbox_for_portrait_ratio(monkeypatch, tmp_path) -> None:
+    key = "b" * 64
+    captured = {}
+
+    def prepare(config):
+        captured["bbox"] = config.map.viewport.bbox
+        return MapDataRef(key, Path(tmp_path), True)
+
+    monkeypatch.setattr(service, "prepare_map", prepare)
+
+    payload = poster_payload()
+    payload["bbox"] = {"west": 116.3, "south": 39.8, "east": 116.5, "north": 40.0}
+    payload["size"] = {"preset": "3:4"}
+    response = client.post("/api/v1/map-data/prepare", json=payload)
+
+    assert response.status_code == 200
+    assert captured["bbox"].as_tuple() == (116.3, 39.8, 116.5, 40.0)
+
+
 def test_invalid_coordinate_returns_clear_error(monkeypatch) -> None:
     response = client.post(
         "/api/v1/map-data/prepare",

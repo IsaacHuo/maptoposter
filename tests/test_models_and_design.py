@@ -5,7 +5,13 @@ import pytest
 from maptoposter.layouts import LAYOUTS, get_layout
 from maptoposter.models import BBox, Coordinate, LayoutPreset, PosterSize, SizePreset, TypographyConfig
 from maptoposter.themes import list_themes, load_style
-from maptoposter.typography import apply_letter_spacing, fitted_font_size, format_coordinates, safe_slug
+from maptoposter.typography import (
+    apply_letter_spacing,
+    fitted_font_size,
+    format_coordinates,
+    resolve_text_positions,
+    safe_slug,
+)
 from maptoposter.viewport import GEOD, create_viewport, expand_bbox_to_aspect
 
 
@@ -63,3 +69,29 @@ def test_typography_helpers() -> None:
     assert safe_slug("Where We Met / 北京") == "where-we-met-北京"
     with pytest.raises(ValueError, match="alignment"):
         TypographyConfig(alignment="middle")
+
+
+def test_landscape_typography_positions_do_not_overlap() -> None:
+    positions = resolve_text_positions(
+        figure_height=9,
+        text_rect_y=0.045,
+        text_rect_height=0.18,
+        title_y=0.145,
+        subtitle_y=0.105,
+        caption_y=0.082,
+        coordinates_y=0.055,
+        title_size=46,
+        subtitle_size=17,
+        caption_size=13,
+        coordinate_size=11,
+        has_title=True,
+        has_subtitle=True,
+        has_caption=False,
+        show_coordinates=True,
+    )
+
+    title_height = 46 / 72 / 9
+    subtitle_height = 17 / 72 / 9
+    coordinate_height = 11 / 72 / 9
+    assert positions["title"] - title_height / 2 > positions["subtitle"] + subtitle_height / 2
+    assert positions["subtitle"] - subtitle_height / 2 > positions["coordinates"] + coordinate_height / 2

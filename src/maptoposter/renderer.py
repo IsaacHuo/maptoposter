@@ -21,7 +21,7 @@ from pyproj import Transformer
 from .fonts import load_fonts
 from .layouts import LayoutSpec, get_layout
 from .models import ExportConfig, LayoutPreset, MapData, OutputFormat, PosterConfig, PreviewConfig
-from .typography import apply_letter_spacing, fitted_font_size, format_coordinates
+from .typography import apply_letter_spacing, fitted_font_size, format_coordinates, resolve_text_positions
 
 RENDER_LOCK = threading.RLock()
 ROAD_WIDTHS = {"motorway": 1.5, "primary": 1.15, "secondary": 0.75, "residential": 0.38}
@@ -209,10 +209,27 @@ class PosterRenderer:
 
         title = typography.title or config.location.display_name.split(",")[0]
         title_size = fitted_font_size(title, typography.title_size, max_units=layout.text_rect.width * 29)
+        positions = resolve_text_positions(
+            figure_height=fig.get_figheight(),
+            text_rect_y=layout.text_rect.y,
+            text_rect_height=layout.text_rect.height,
+            title_y=layout.title_y,
+            subtitle_y=layout.subtitle_y,
+            caption_y=layout.caption_y,
+            coordinates_y=layout.coordinates_y,
+            title_size=title_size,
+            subtitle_size=typography.subtitle_size,
+            caption_size=typography.caption_size,
+            coordinate_size=typography.coordinate_size,
+            has_title=bool(title),
+            has_subtitle=bool(typography.subtitle),
+            has_caption=bool(typography.caption),
+            show_coordinates=typography.show_coordinates,
+        )
         if title:
             fig.text(
                 x,
-                layout.title_y,
+                positions["title"],
                 title if fonts["is_cjk"] else apply_letter_spacing(title, typography.letter_spacing),
                 ha=alignment,
                 va="center",
@@ -228,7 +245,7 @@ class PosterRenderer:
             fig.lines.append(
                 Line2D(
                     [center - half_width, center + half_width],
-                    [layout.divider_y, layout.divider_y],
+                    [positions["divider"], positions["divider"]],
                     transform=fig.transFigure,
                     color=style.text,
                     linewidth=0.75,
@@ -239,9 +256,10 @@ class PosterRenderer:
         if typography.subtitle:
             fig.text(
                 x,
-                layout.subtitle_y,
+                positions["subtitle"],
                 apply_letter_spacing(typography.subtitle, typography.letter_spacing),
                 ha=alignment,
+                va="center",
                 color=style.text,
                 fontproperties=fonts["regular"],
                 fontsize=typography.subtitle_size,
@@ -250,9 +268,10 @@ class PosterRenderer:
         if typography.caption:
             fig.text(
                 x,
-                layout.caption_y,
+                positions["caption"],
                 typography.caption,
                 ha=alignment,
+                va="center",
                 color=style.text,
                 fontproperties=fonts["regular"],
                 fontsize=typography.caption_size,
@@ -264,7 +283,7 @@ class PosterRenderer:
             )
             fig.text(
                 x,
-                layout.coordinates_y,
+                positions["coordinates"],
                 coordinate_text,
                 ha=alignment,
                 color=style.text,

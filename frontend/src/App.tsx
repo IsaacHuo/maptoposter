@@ -160,7 +160,7 @@ export default function App() {
     colors: customColors, typography, layout, layers, size: { preset: size },
   }), [bbox, customColors, layers, layout, location, mapZoom, size, styleId, typography])
   const posterSignature = useMemo(() => JSON.stringify(poster), [poster])
-  const dataSignature = useMemo(() => JSON.stringify({ location, bbox, network: poster.network_type, layout, size }), [bbox, layout, location, poster.network_type, size])
+  const dataSignature = useMemo(() => JSON.stringify({ location, bbox, network: poster.network_type }), [bbox, location, poster.network_type])
   const prepareRequest = useMemo(() => ({
     location, bbox, distance_m: 10_000, zoom: mapZoom, network_type: 'all' as const,
     style_id: 'japanese_ink', colors: {}, typography: DEFAULT_TYPE, layout, layers: DEFAULT_LAYERS, size: { preset: size },
@@ -348,7 +348,7 @@ export default function App() {
         <button type="button" className={orientation === 'landscape' ? 'is-selected' : ''} aria-pressed={orientation === 'landscape'} onClick={() => changeOrientation('landscape')}>Landscape</button>
       </div>
       <div className="size-grid">{visibleSizeOptions.map((option) => <button key={option.id} aria-label={`${orientation} ${option.label}`} className={size === option.id ? 'is-selected' : ''} onClick={() => setSize(option.id)}><span className="size-shape" style={{ aspectRatio: String(option.aspect) }} />{option.label}</button>)}</div>
-      <p className="field-help">The selected map area is expanded to fit the poster without cropping. Export uses this ratio and DPI.</p>
+      <p className="field-help">The selected map area is always kept in full. Export uses this ratio and DPI.</p>
     </>,
   }
 

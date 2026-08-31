@@ -36,7 +36,7 @@ MapToPoster 是一个开源的地图海报编辑器。你可以搜索城市、�
 - 自定义标题、副标题、坐标、字距、对齐方式和分隔线。
 - 控制高速、主干道、次干道、住宅道路、水域和公园图层。
 - 支持横向与竖向海报，包括 `3:4`、`4:3`、`4:5`、`5:4`、`2:3`、`3:2`、`9:16`、`16:9`、`1:1`、A4 和 A3。
-- 根据纸张和布局扩展地图取景范围，在不裁掉原选区的前提下适配海报比例。
+- 海报比例变化时保留完整的地图选区，不裁掉用户已经选定的范围。
 - 选择“开始生成”后才抓取地图数据，并在准备、渲染和导出阶段显示进度与耗时。
 - 导出 PNG、SVG 和 PDF；PNG 支持预览分辨率或 300 DPI 打印分辨率。
 - 中国行政区优先使用本地数据，其余地点通过 Nominatim 查询。
@@ -139,7 +139,7 @@ GitHub `main` 是唯一源码分支。每次推送都会先运行 Python、React
 - Edit titles, subtitles, coordinates, tracking, alignment, and dividers.
 - Toggle motorway, primary, secondary, residential, water, and park layers.
 - Create portrait or landscape posters with `3:4`, `4:3`, `4:5`, `5:4`, `2:3`, `3:2`, `9:16`, `16:9`, `1:1`, A4, and A3 presets.
-- Expand the selected map coverage to fit the paper and layout without cropping the original area.
+- Keep the complete selected map coverage when changing paper ratios; the chosen area is never cropped.
 - Start generation explicitly, with visible progress and elapsed time for data preparation, rendering, and export.
 - Export PNG, SVG, or PDF; PNG supports preview and 300 DPI print output.
 - Resolve Chinese administrative areas locally before falling back to Nominatim.

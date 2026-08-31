@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from maptoposter.layouts import get_layout
 from maptoposter.models import (
     BBox,
     Coordinate,
@@ -20,7 +19,6 @@ from maptoposter.models import (
     TypographyConfig,
 )
 from maptoposter.themes import load_style
-from maptoposter.viewport import expand_bbox_to_aspect
 
 
 class LocationSchema(BaseModel):
@@ -109,12 +107,9 @@ class PosterRequest(BaseModel):
 
     def to_core(self) -> PosterConfig:
         location = self.location.to_core()
-        raw_bbox = BBox(**self.bbox.model_dump())
+        bbox = BBox(**self.bbox.model_dump())
         size = PosterSize(**self.size.model_dump())
         layout = LayoutConfig(self.layout)
-        map_rect = get_layout(layout.preset).map_rect
-        width, height = size.dimensions
-        bbox = expand_bbox_to_aspect(raw_bbox, (width * map_rect.width) / (height * map_rect.height))
         style = load_style(self.style_id).with_colors(**self.colors)
         return PosterConfig(
             location=location,
