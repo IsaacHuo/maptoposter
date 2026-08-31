@@ -40,3 +40,32 @@ def create_bbox_tuple(
 ) -> tuple[float, float, float, float]:
     """Backward-compatible bbox helper."""
     return create_viewport(Coordinate(*point), distance_m, width, height).bbox.as_tuple()
+
+
+def expand_bbox_to_aspect(bbox: BBox, target_aspect: float) -> BBox:
+    """Expand a bbox to an aspect ratio without cropping its original coverage."""
+    if target_aspect <= 0:
+        raise ValueError("Target aspect ratio must be greater than zero.")
+
+    center_lon = (bbox.west + bbox.east) / 2
+    center_lat = (bbox.south + bbox.north) / 2
+    _, _, width_m = GEOD.inv(bbox.west, center_lat, bbox.east, center_lat)
+    _, _, height_m = GEOD.inv(center_lon, bbox.south, center_lon, bbox.north)
+    if width_m <= 0 or height_m <= 0:
+        raise ValueError("Bounding box dimensions must be greater than zero.")
+
+    current_aspect = width_m / height_m
+    if abs(current_aspect - target_aspect) < 0.005:
+        return bbox
+    if current_aspect > target_aspect:
+        extra_m = (width_m / target_aspect - height_m) / 2
+        _, south, _ = GEOD.fwd(center_lon, bbox.south, 180, extra_m)
+        _, north, _ = GEOD.fwd(center_lon, bbox.north, 0, extra_m)
+        return BBox(bbox.west, south, bbox.east, north)
+
+    extra_m = (height_m * target_aspect - width_m) / 2
+    west, _, _ = GEOD.fwd(bbox.west, center_lat, 270, extra_m)
+    east, _, _ = GEOD.fwd(bbox.east, center_lat, 90, extra_m)
+    if west >= east:
+        raise ValueError("Aspect fitting would cross the antimeridian.")
+    return BBox(west, bbox.south, east, bbox.north)

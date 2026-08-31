@@ -78,11 +78,16 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .layout-glyph.editorial::before, .layout-glyph.editorial::after, .layout-glyph.minimal::before, .layout-glyph.minimal::after, .layout-glyph.bottom_left::before, .layout-glyph.bottom_left::after { left: 3px; right: 11px; }
 .layout-glyph.centered::before { bottom: 20px; }.layout-glyph.centered::after { bottom: 15px; }
 .toggle-list { display: grid; }.toggle-list label { height: 39px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-soft); font-size: 12px; text-transform: capitalize; }.toggle-list input { accent-color: var(--accent); }
+.orientation-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin-bottom: 12px; padding: 3px; border-radius: 5px; background: var(--page); }
+.orientation-toggle button { height: 34px; border-radius: 3px; color: var(--muted); font-size: 11px; font-weight: 600; }
+.orientation-toggle button.is-selected { color: var(--text); background: #fff; box-shadow: 0 1px 4px rgba(25,32,45,.12); }
 .size-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }.size-grid button { min-height: 68px; display: grid; place-items: center; align-content: center; gap: 4px; border: 1px solid var(--border); border-radius: 4px; background: #fff; font-size: 10px; }
-.size-shape { width: 19px; height: 25px; border: 1px solid currentColor; }.size-shape[data-ratio="1:1"] { height: 19px; }.size-shape[data-ratio="4:5"] { height: 24px; }.size-shape[data-ratio="2:3"] { height: 28px; }.size-shape[data-ratio="9:16"] { width: 16px; height: 28px; }
+.size-shape { width: auto; height: 25px; max-width: 39px; border: 1px solid currentColor; }
 .workspace { position: fixed; inset: var(--header) 0 0 var(--sidebar); display: grid; grid-template-rows: minmax(0, 1fr) minmax(38px, auto) 58px; background: var(--page); }
 .canvas-stage { min-height: 0; overflow: auto; display: grid; place-items: center; padding: 30px; }
-.poster-frame { position: relative; height: min(700px, calc(100vh - 190px)); max-width: 72%; background: var(--poster); border: 8px solid var(--poster); outline: 1px solid rgba(0,0,0,.65); box-shadow: var(--poster-shadow); transform-origin: center; transition: transform .16s ease, aspect-ratio .2s ease; }
+.poster-frame { position: relative; background: var(--poster); border: 8px solid var(--poster); outline: 1px solid rgba(0,0,0,.65); box-shadow: var(--poster-shadow); transform-origin: center; transition: transform .16s ease, aspect-ratio .2s ease; }
+.poster-frame.is-tall { height: min(700px, calc(100vh - 190px)); max-width: 72%; }
+.poster-frame.is-wide { width: min(78%, calc(100vh - 190px)); max-height: calc(100vh - 190px); }
 .poster-frame img { width: 100%; height: 100%; display: block; object-fit: contain; background: var(--poster); }
 .preview-loading { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 12px; padding: 24px; color: var(--text); background: rgba(246,244,239,.82); font-size: 12px; backdrop-filter: blur(2px); }
 .preview-status { min-height: 38px; display: flex; align-items: center; justify-content: flex-end; gap: 16px; padding: 7px 20px; color: var(--muted); font-size: 11px; background: rgba(255,255,255,.76); }.preview-status.success { color: var(--success); }.preview-status.error { color: var(--danger); }
@@ -106,7 +111,9 @@ button:disabled { cursor: not-allowed; opacity: .38; }
   .sidebar { display: none; }
   .workspace { position: static; display: contents; }
   .canvas-stage { height: 55vh; min-height: 420px; padding: 30px 24px 18px; overflow: hidden; order: 1; }
-  .poster-frame { height: min(49vh, 550px); max-width: calc(100vw - 56px); border-width: 6px; }
+  .poster-frame { border-width: 6px; }
+  .poster-frame.is-tall { width: auto; height: min(49vh, 550px); max-width: calc(100vw - 56px); }
+  .poster-frame.is-wide { width: calc(100vw - 56px); height: auto; max-height: 49vh; }
   .preview-loading { font-size: 11px; }
   .mobile-tabs { position: sticky; z-index: 25; top: 62px; display: grid; grid-template-columns: repeat(6, minmax(54px, 1fr)); height: 68px; overflow-x: auto; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: #fff; order: 2; }
   .mobile-tabs button { position: relative; min-width: 54px; display: grid; place-content: center; justify-items: center; gap: 4px; color: var(--muted); font-size: 10px; }

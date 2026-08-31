@@ -101,7 +101,14 @@ def test_renderer_design_matrix(map_data, poster_config) -> None:
             assert renderer.render_preview(map_data, config, PreviewConfig(dpi=48, max_dimension_px=220)).startswith(
                 b"\x89PNG"
             )
-    for preset in (SizePreset.THREE_FOUR, SizePreset.FOUR_FIVE, SizePreset.SQUARE, SizePreset.A4):
+    for preset in (
+        SizePreset.THREE_FOUR,
+        SizePreset.FOUR_FIVE,
+        SizePreset.FOUR_THREE,
+        SizePreset.SIXTEEN_NINE,
+        SizePreset.SQUARE,
+        SizePreset.A4,
+    ):
         config = poster_config.__class__(
             location=poster_config.location,
             map=poster_config.map,

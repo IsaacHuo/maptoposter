@@ -1,6 +1,6 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { prepareMap, renderPreview } from './api'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { prepareMap, renderPreview, searchPlaces } from './api'
 import App from './App'
 
 vi.mock('./components/MapViewport', () => ({
@@ -19,6 +19,7 @@ vi.mock('./api', () => ({
 
 describe('editor shell', () => {
   beforeEach(() => vi.clearAllMocks())
+  afterEach(cleanup)
 
   it('loads styles and exposes product controls', async () => {
     render(<App />)
@@ -39,6 +40,41 @@ describe('editor shell', () => {
     await waitFor(() => expect(screen.getAllByText('Paris, France').length).toBeGreaterThan(0))
     fireEvent.click(screen.getAllByText('Paris, France')[0])
     expect(screen.getAllByText('Paris, France').length).toBeGreaterThan(0)
+  })
+
+  it('fills poster text from a selected Chinese location and omits caption', async () => {
+    vi.mocked(searchPlaces).mockResolvedValueOnce([{
+      display_name: '深圳市, 广东省, 中国', latitude: 22.5431, longitude: 114.0579,
+      country: '中国', region: '广东省', country_code: 'cn', provider: 'china-local',
+    }])
+    render(<App />)
+    await waitFor(() => expect(screen.getAllByText('Japanese Ink').length).toBeGreaterThan(0))
+
+    const search = screen.getAllByRole('textbox', { name: 'Search a place' })[0]
+    fireEvent.change(search, { target: { value: '深圳' } })
+    fireEvent.submit(search.closest('form')!)
+    await waitFor(() => expect(screen.getAllByText('深圳市, 广东省, 中国').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getAllByText('深圳市, 广东省, 中国')[0])
+
+    expect(screen.getAllByRole('textbox', { name: 'Title' }).map((input) => (input as HTMLInputElement).value)).toEqual(['深圳市'])
+    expect(screen.getAllByRole('textbox', { name: 'Subtitle' }).map((input) => (input as HTMLInputElement).value)).toEqual(['广东省'])
+    expect(screen.queryByRole('textbox', { name: 'Caption' })).not.toBeInTheDocument()
+  })
+
+  it('offers landscape ratios and sends the selected size for generation', async () => {
+    render(<App />)
+    await waitFor(() => expect(screen.getAllByText('Japanese Ink').length).toBeGreaterThan(0))
+    fireEvent.click(screen.getAllByRole('button', { name: 'Size' })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: 'Landscape' })[0])
+    fireEvent.click(screen.getAllByRole('button', { name: 'landscape 16:9' })[0])
+
+    expect(document.querySelector('.poster-frame')).toHaveStyle({ aspectRatio: String(16 / 9) })
+    fireEvent.click(screen.getAllByRole('button', { name: /Generate preview/i })[0])
+    await waitFor(() => expect(prepareMap).toHaveBeenCalled())
+    expect(prepareMap).toHaveBeenCalledWith(
+      expect.objectContaining({ layout: 'classic', size: { preset: '16:9' } }),
+      expect.any(AbortSignal),
+    )
   })
 
   it('changes zoom and fit state', () => {

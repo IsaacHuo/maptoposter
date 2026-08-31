@@ -26,7 +26,14 @@ def test_catalog_endpoints() -> None:
     assert client.get("/api/v1/health").json()["status"] == "ok"
     assert len(client.get("/api/v1/styles").json()) >= 5
     assert len(client.get("/api/v1/layouts").json()) == 5
-    assert {item["id"] for item in client.get("/api/v1/sizes").json()} >= {"3:4", "1:1", "A4"}
+    assert {item["id"] for item in client.get("/api/v1/sizes").json()} >= {
+        "3:4",
+        "4:3",
+        "16:9",
+        "1:1",
+        "A4",
+        "A4-landscape",
+    }
 
 
 def test_prepare_preview_and_export_contract(monkeypatch, tmp_path) -> None:

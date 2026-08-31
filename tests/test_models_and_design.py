@@ -3,10 +3,10 @@ from __future__ import annotations
 import pytest
 
 from maptoposter.layouts import LAYOUTS, get_layout
-from maptoposter.models import Coordinate, LayoutPreset, PosterSize, SizePreset, TypographyConfig
+from maptoposter.models import BBox, Coordinate, LayoutPreset, PosterSize, SizePreset, TypographyConfig
 from maptoposter.themes import list_themes, load_style
 from maptoposter.typography import apply_letter_spacing, fitted_font_size, format_coordinates, safe_slug
-from maptoposter.viewport import create_viewport
+from maptoposter.viewport import GEOD, create_viewport, expand_bbox_to_aspect
 
 
 def test_coordinate_and_viewport_validation() -> None:
@@ -21,11 +21,27 @@ def test_coordinate_and_viewport_validation() -> None:
 
 def test_sizes_and_layouts_are_distinct() -> None:
     assert PosterSize(SizePreset.THREE_FOUR).dimensions == (12.0, 16.0)
+    assert PosterSize(SizePreset.FOUR_THREE).dimensions == (16.0, 12.0)
+    assert PosterSize(SizePreset.SIXTEEN_NINE).dimensions == (16.0, 9.0)
+    assert PosterSize(SizePreset.A4_LANDSCAPE).dimensions[0] > PosterSize(SizePreset.A4_LANDSCAPE).dimensions[1]
     assert PosterSize(SizePreset.SQUARE).dimensions == (12.0, 12.0)
     with pytest.raises(ValueError, match="requires"):
         PosterSize(SizePreset.CUSTOM)
     assert len(LAYOUTS) == 5
     assert len({get_layout(item).map_rect for item in LayoutPreset}) >= 3
+
+
+def test_bbox_aspect_fitting_preserves_the_selected_area() -> None:
+    original = BBox(113.9, 22.4, 114.2, 22.6)
+    fitted = expand_bbox_to_aspect(original, 3 / 4)
+
+    assert fitted.west <= original.west and fitted.east >= original.east
+    assert fitted.south <= original.south and fitted.north >= original.north
+    center_lon = (fitted.west + fitted.east) / 2
+    center_lat = (fitted.south + fitted.north) / 2
+    _, _, width_m = GEOD.inv(fitted.west, center_lat, fitted.east, center_lat)
+    _, _, height_m = GEOD.inv(center_lon, fitted.south, center_lon, fitted.north)
+    assert width_m / height_m == pytest.approx(3 / 4, abs=0.01)
 
 
 def test_theme_loading_and_custom_colors() -> None:

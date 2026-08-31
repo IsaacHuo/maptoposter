@@ -20,10 +20,16 @@ class SizePreset(StrEnum):
     THREE_FOUR = "3:4"
     FOUR_FIVE = "4:5"
     TWO_THREE = "2:3"
+    FOUR_THREE = "4:3"
+    FIVE_FOUR = "5:4"
+    THREE_TWO = "3:2"
     SQUARE = "1:1"
     NINE_SIXTEEN = "9:16"
+    SIXTEEN_NINE = "16:9"
     A4 = "A4"
     A3 = "A3"
+    A4_LANDSCAPE = "A4-landscape"
+    A3_LANDSCAPE = "A3-landscape"
     CUSTOM = "custom"
 
 
@@ -161,10 +167,16 @@ SIZE_PRESETS: dict[SizePreset, tuple[float, float]] = {
     SizePreset.THREE_FOUR: (12.0, 16.0),
     SizePreset.FOUR_FIVE: (12.0, 15.0),
     SizePreset.TWO_THREE: (12.0, 18.0),
+    SizePreset.FOUR_THREE: (16.0, 12.0),
+    SizePreset.FIVE_FOUR: (15.0, 12.0),
+    SizePreset.THREE_TWO: (18.0, 12.0),
     SizePreset.SQUARE: (12.0, 12.0),
     SizePreset.NINE_SIXTEEN: (9.0, 16.0),
+    SizePreset.SIXTEEN_NINE: (16.0, 9.0),
     SizePreset.A4: (8.2677, 11.6929),
     SizePreset.A3: (11.6929, 16.5354),
+    SizePreset.A4_LANDSCAPE: (11.6929, 8.2677),
+    SizePreset.A3_LANDSCAPE: (16.5354, 11.6929),
 }
 
 

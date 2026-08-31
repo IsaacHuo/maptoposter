@@ -15,7 +15,7 @@ const DEFAULT_LOCATION: LocationResult = {
 }
 const DEFAULT_BBOX: BBox = { west: 116.292, south: 39.955, east: 116.405, north: 40.047 }
 const DEFAULT_TYPE: Typography = {
-  title: 'BEIJING FORESTRY UNIVERSITY', subtitle: 'BEIJING', caption: '2023 — 2027', coordinates: '',
+  title: 'BEIJING FORESTRY UNIVERSITY', subtitle: 'BEIJING', caption: '', coordinates: '',
   font_family: 'auto', title_size: 46, subtitle_size: 17, caption_size: 13, coordinate_size: 11,
   letter_spacing: 0.08, line_height: 1.15, alignment: 'center', show_coordinates: true, show_divider: true,
 }
@@ -24,7 +24,27 @@ const DEFAULT_LAYERS: LayerState = {
 }
 const PANEL_IDS = ['location', 'style', 'layout', 'type', 'layers', 'size'] as const
 type PanelId = typeof PANEL_IDS[number]
-const SIZE_OPTIONS = ['3:4', '4:5', '2:3', '1:1', '9:16', 'A4', 'A3']
+type Orientation = 'portrait' | 'landscape'
+const SIZE_OPTIONS = [
+  { id: '3:4', label: '3:4', aspect: 3 / 4, orientation: 'portrait' },
+  { id: '4:5', label: '4:5', aspect: 4 / 5, orientation: 'portrait' },
+  { id: '2:3', label: '2:3', aspect: 2 / 3, orientation: 'portrait' },
+  { id: '9:16', label: '9:16', aspect: 9 / 16, orientation: 'portrait' },
+  { id: 'A4', label: 'A4', aspect: 210 / 297, orientation: 'portrait' },
+  { id: 'A3', label: 'A3', aspect: 297 / 420, orientation: 'portrait' },
+  { id: '4:3', label: '4:3', aspect: 4 / 3, orientation: 'landscape' },
+  { id: '5:4', label: '5:4', aspect: 5 / 4, orientation: 'landscape' },
+  { id: '3:2', label: '3:2', aspect: 3 / 2, orientation: 'landscape' },
+  { id: '16:9', label: '16:9', aspect: 16 / 9, orientation: 'landscape' },
+  { id: 'A4-landscape', label: 'A4', aspect: 297 / 210, orientation: 'landscape' },
+  { id: 'A3-landscape', label: 'A3', aspect: 420 / 297, orientation: 'landscape' },
+  { id: '1:1', label: '1:1', aspect: 1, orientation: 'square' },
+] as const
+type PosterSizeId = typeof SIZE_OPTIONS[number]['id']
+const ORIENTATION_PAIR: Partial<Record<PosterSizeId, PosterSizeId>> = {
+  '3:4': '4:3', '4:3': '3:4', '4:5': '5:4', '5:4': '4:5', '2:3': '3:2', '3:2': '2:3',
+  '9:16': '16:9', '16:9': '9:16', A4: 'A4-landscape', 'A4-landscape': 'A4', A3: 'A3-landscape', 'A3-landscape': 'A3',
+}
 const LAYOUT_OPTIONS = ['classic', 'editorial', 'minimal', 'bottom_left', 'centered']
 const panelMeta = {
   location: ['Location', MapPin], style: ['Style', Palette], layout: ['Layout', LayoutTemplate],
@@ -103,7 +123,8 @@ export default function App() {
   const [typography, setTypography] = useState(DEFAULT_TYPE)
   const [layout, setLayout] = useState('classic')
   const [layers, setLayers] = useState(DEFAULT_LAYERS)
-  const [size, setSize] = useState('3:4')
+  const [orientation, setOrientation] = useState<Orientation>('portrait')
+  const [size, setSize] = useState<PosterSizeId>('3:4')
   const [mapDataId, setMapDataId] = useState('')
   const [preparedSignature, setPreparedSignature] = useState('')
   const [renderedSignature, setRenderedSignature] = useState('')
@@ -139,11 +160,14 @@ export default function App() {
     colors: customColors, typography, layout, layers, size: { preset: size },
   }), [bbox, customColors, layers, layout, location, mapZoom, size, styleId, typography])
   const posterSignature = useMemo(() => JSON.stringify(poster), [poster])
-  const dataSignature = useMemo(() => JSON.stringify({ location, bbox, network: poster.network_type }), [bbox, location, poster.network_type])
+  const dataSignature = useMemo(() => JSON.stringify({ location, bbox, network: poster.network_type, layout, size }), [bbox, layout, location, poster.network_type, size])
   const prepareRequest = useMemo(() => ({
     location, bbox, distance_m: 10_000, zoom: mapZoom, network_type: 'all' as const,
-    style_id: 'japanese_ink', colors: {}, typography: DEFAULT_TYPE, layout: 'classic', layers: DEFAULT_LAYERS, size: { preset: '3:4' },
-  }), [bbox, location, mapZoom])
+    style_id: 'japanese_ink', colors: {}, typography: DEFAULT_TYPE, layout, layers: DEFAULT_LAYERS, size: { preset: size },
+  }), [bbox, layout, location, mapZoom, size])
+  const sizeOption = SIZE_OPTIONS.find((option) => option.id === size) ?? SIZE_OPTIONS[0]
+  const posterAspect = sizeOption.aspect
+  const visibleSizeOptions = SIZE_OPTIONS.filter((option) => option.orientation === orientation || option.orientation === 'square')
   const isGenerating = previewPhase === 'preparing' || previewPhase === 'rendering'
   const previewStale = renderedSignature !== posterSignature
 
@@ -195,7 +219,14 @@ export default function App() {
 
   const chooseLocation = (result: LocationResult) => {
     setLocation(result); setBBox(extentFor(result)); setMapZoom(null); setSearchResults([]); setSearchQuery('')
-    setTypography((current) => ({ ...current, subtitle: result.region || result.country || current.subtitle }))
+    const title = result.display_name.split(',')[0]?.trim() || result.display_name
+    setTypography((current) => ({ ...current, title, subtitle: result.region || result.country, caption: '' }))
+  }
+
+  const changeOrientation = (next: Orientation) => {
+    if (next === orientation) return
+    setOrientation(next)
+    setSize((current) => current === '1:1' ? current : ORIENTATION_PAIR[current] ?? (next === 'portrait' ? '3:4' : '4:3'))
   }
 
   const updateColor = (key: string, value: string) => setCustomColors((current) => ({ ...current, [key]: value }))
@@ -305,14 +336,20 @@ export default function App() {
     type: <div className="form-stack">
       <label className="field"><span>Title</span><input value={typography.title} onChange={(event) => setTypography({ ...typography, title: event.target.value })} /></label>
       <label className="field"><span>Subtitle</span><input value={typography.subtitle} onChange={(event) => setTypography({ ...typography, subtitle: event.target.value })} /></label>
-      <label className="field"><span>Caption</span><input value={typography.caption} onChange={(event) => setTypography({ ...typography, caption: event.target.value })} /></label>
       <div className="two-fields"><label className="field"><span>Title size</span><input type="number" min="12" max="120" value={typography.title_size} onChange={(event) => setTypography({ ...typography, title_size: Number(event.target.value) })} /></label><label className="field"><span>Alignment</span><select value={typography.alignment} onChange={(event) => setTypography({ ...typography, alignment: event.target.value as Typography['alignment'] })}><option>left</option><option>center</option><option>right</option></select></label></div>
       <label className="range-field"><span>Letter spacing <output>{Math.round(typography.letter_spacing * 100)}%</output></span><input type="range" min="0" max="0.3" step="0.01" value={typography.letter_spacing} onChange={(event) => setTypography({ ...typography, letter_spacing: Number(event.target.value) })} /></label>
       <label className="check-field"><input type="checkbox" checked={typography.show_coordinates} onChange={(event) => setTypography({ ...typography, show_coordinates: event.target.checked })} />Show coordinates</label>
       <label className="check-field"><input type="checkbox" checked={typography.show_divider} onChange={(event) => setTypography({ ...typography, show_divider: event.target.checked })} />Show divider</label>
     </div>,
     layers: <div className="toggle-list">{Object.entries(layers).map(([key, value]) => <label key={key}><span>{key.replace('_', ' ')}</span><input type="checkbox" checked={value} onChange={(event) => setLayers({ ...layers, [key]: event.target.checked })} /></label>)}</div>,
-    size: <><div className="size-grid">{SIZE_OPTIONS.map((value) => <button key={value} className={size === value ? 'is-selected' : ''} onClick={() => setSize(value)}><span className="size-shape" data-ratio={value} />{value}</button>)}</div><p className="field-help">Preview is optimized for speed. Export uses the selected print ratio and DPI.</p></>,
+    size: <>
+      <div className="orientation-toggle" role="group" aria-label="Poster orientation">
+        <button type="button" className={orientation === 'portrait' ? 'is-selected' : ''} aria-pressed={orientation === 'portrait'} onClick={() => changeOrientation('portrait')}>Portrait</button>
+        <button type="button" className={orientation === 'landscape' ? 'is-selected' : ''} aria-pressed={orientation === 'landscape'} onClick={() => changeOrientation('landscape')}>Landscape</button>
+      </div>
+      <div className="size-grid">{visibleSizeOptions.map((option) => <button key={option.id} aria-label={`${orientation} ${option.label}`} className={size === option.id ? 'is-selected' : ''} onClick={() => setSize(option.id)}><span className="size-shape" style={{ aspectRatio: String(option.aspect) }} />{option.label}</button>)}</div>
+      <p className="field-help">The selected map area is expanded to fit the poster without cropping. Export uses this ratio and DPI.</p>
+    </>,
   }
 
   return <div className="app-shell">
@@ -335,7 +372,7 @@ export default function App() {
 
     <main className="workspace">
       <div className="canvas-stage">
-        <div className="poster-frame" style={{ transform: `scale(${canvasZoom / 100})`, aspectRatio: size === '1:1' ? '1 / 1' : size === '4:5' ? '4 / 5' : size === '2:3' ? '2 / 3' : size === '9:16' ? '9 / 16' : size === 'A4' || size === 'A3' ? '210 / 297' : '3 / 4' }}>
+        <div className={`poster-frame ${posterAspect >= 1 ? 'is-wide' : 'is-tall'}`} style={{ transform: `scale(${canvasZoom / 100})`, aspectRatio: String(posterAspect) }}>
           <img src={previewUrl} alt={`Poster preview for ${location.display_name}`} />
           {isGenerating && <div className="preview-loading"><LoaderCircle className="spin" /><ProgressFeedback value={generationProgress} label={statusText} elapsed={generationElapsed} /></div>}
         </div>
