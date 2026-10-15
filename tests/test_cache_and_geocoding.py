@@ -2,18 +2,28 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import pytest
+
+import maptoposter.geocoding as geocoding
 from maptoposter.cache import DiskCache, map_cache_key
 from maptoposter.china import search_china
-from maptoposter.geocoding import GeocodingService, parse_coordinate_query
+from maptoposter.geocoding import (
+    GeocodingService,
+    NominatimProvider,
+    nominatim_language,
+    parse_coordinate_query,
+)
 from maptoposter.models import Coordinate, Location
 
 
 class FakeProvider:
     def __init__(self) -> None:
         self.calls = 0
+        self.languages: list[str] = []
 
     def search(self, query: str, language: str, limit: int) -> list[Location]:
         self.calls += 1
+        self.languages.append(language)
         return [Location(query, Coordinate(1.25, 2.5), "Testland", provider="fake")]
 
 
@@ -50,3 +60,46 @@ def test_external_geocoder_result_is_cached(tmp_path) -> None:
     assert service.search("Atlantis")[0].provider == "fake"
     assert service.search("Atlantis")[0].provider == "fake"
     assert provider.calls == 1
+
+
+@pytest.mark.parametrize(
+    ("language", "expected"),
+    [
+        ("en", "en"),
+        ("fr", "en"),
+        ("cn", "zh-CN"),
+        ("zh", "zh-CN"),
+        ("zh-CN", "zh-CN"),
+        ("ZH", "zh-CN"),
+    ],
+)
+def test_nominatim_language_maps_chinese_aliases(language: str, expected: str) -> None:
+    assert nominatim_language(language) == expected
+
+
+@pytest.mark.parametrize(
+    ("requested", "expected"),
+    [("cn", "zh-CN"), ("zh", "zh-CN"), ("zh-CN", "zh-CN"), ("en", "en"), ("fr", "en")],
+)
+def test_nominatim_provider_forwards_localized_language(monkeypatch, requested: str, expected: str) -> None:
+    captured: list[str] = []
+
+    class FakeGeocoder:
+        def geocode(self, query: str, **kwargs: object) -> list[object]:
+            captured.append(str(kwargs.get("language")))
+            return []
+
+    monkeypatch.setattr(geocoding, "Nominatim", lambda **_: FakeGeocoder())
+
+    NominatimProvider().search("Tokyo", requested)
+
+    assert captured == [expected]
+
+
+def test_geocoding_service_forwards_requested_language(tmp_path) -> None:
+    provider = FakeProvider()
+    service = GeocodingService(DiskCache(tmp_path), provider)
+
+    service.search("Atlantis", "zh")
+
+    assert provider.languages == ["zh"]

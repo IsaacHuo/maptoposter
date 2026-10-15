@@ -18,6 +18,17 @@ from .models import Coordinate, Location
 
 COORDINATE_QUERY = re.compile(r"^\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*[,/ ]\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*$")
 
+CHINESE_LANGUAGE_CODES = frozenset({"cn", "zh", "zh-cn"})
+
+
+def nominatim_language(language: str) -> str:
+    """Map a UI language code to the language sent to Nominatim.
+
+    The product documents ``en`` and ``cn``; ``zh``/``zh-CN`` are accepted as
+    aliases for Chinese so clients that already send them still localize.
+    """
+    return "zh-CN" if language.strip().lower() in CHINESE_LANGUAGE_CODES else "en"
+
 
 class GeocodingError(RuntimeError):
     """Raised when a place search cannot be completed."""
@@ -65,7 +76,7 @@ class NominatimProvider:
                 exactly_one=False,
                 limit=limit,
                 addressdetails=True,
-                language="zh-CN" if language == "cn" else "en",
+                language=nominatim_language(language),
             )
         except Exception as exc:
             raise GeocodingError(f"Location service is unavailable: {exc}") from exc

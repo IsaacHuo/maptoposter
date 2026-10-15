@@ -30,7 +30,7 @@ export async function getStyles(signal?: AbortSignal): Promise<StylePreset[]> {
 }
 
 export async function searchPlaces(query: string, signal?: AbortSignal): Promise<LocationResult[]> {
-  const params = new URLSearchParams({ q: query, lang: navigator.language.startsWith('zh') ? 'zh' : 'en' })
+  const params = new URLSearchParams({ q: query, lang: navigator.language.startsWith('zh') ? 'cn' : 'en' })
   return expectJson(await request(`${API_ROOT}/locations/search?${params}`, { signal }, 'Place search was interrupted. Please retry.'))
 }
 
