@@ -91,7 +91,7 @@ jobs:
           lfs: true
 
       - name: Mirror main to Hugging Face Space
-        uses: huggingface/hub-sync@v0.1.0
+        uses: huggingface/hub-sync@v0.3.0
         with:
           github_repo_id: ${{ github.repository }}
           huggingface_repo_id: isaachwf/MapToPoster
