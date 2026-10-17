@@ -7,7 +7,17 @@ from pathlib import Path
 
 from .models import OutputFormat
 from .paths import POSTERS_DIR
-from .typography import safe_slug
+from .typography import safe_ascii_slug, safe_slug
+
+
+def ascii_download_filename(filename: str, fallback: str = "map-poster") -> str:
+    """Return an ASCII-only filename that preserves the original extension.
+
+    HTTP header values must be Latin-1 encodable; non-ASCII poster names are
+    reduced to their ASCII parts for the ``filename=`` fallback.
+    """
+    path = Path(filename)
+    return f"{safe_ascii_slug(path.stem, fallback=fallback)}{path.suffix}"
 
 
 def generate_output_filename(

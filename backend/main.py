@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from dataclasses import asdict
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,7 +13,7 @@ from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
 from maptoposter import __version__
-from maptoposter.export import generate_output_filename
+from maptoposter.export import ascii_download_filename, generate_output_filename
 from maptoposter.geocoding import GeocodingError
 from maptoposter.layouts import LAYOUTS
 from maptoposter.map_data import MapDataError
@@ -82,6 +83,20 @@ def preview(request: PreviewRequest) -> Response:
         raise HTTPException(status_code=404 if isinstance(exc, MapDataError) else 400, detail=str(exc)) from exc
 
 
+def content_disposition(filename: str) -> str:
+    """Build an RFC 6266 Content-Disposition value that is Latin-1 safe.
+
+    An ASCII ``filename=`` fallback is always sent; when the readable name
+    contains non-ASCII characters, an RFC 5987 ``filename*=UTF-8''...`` with
+    percent-encoding is appended so clients keep the original name.
+    """
+    ascii_filename = ascii_download_filename(filename)
+    disposition = f'attachment; filename="{ascii_filename}"'
+    if ascii_filename != filename:
+        disposition += f"; filename*=UTF-8''{quote(filename, safe='')}"
+    return disposition
+
+
 @app.post("/api/v1/posters/export")
 def export(request: ExportRequest) -> Response:
     try:
@@ -104,7 +119,7 @@ def export(request: ExportRequest) -> Response:
         return Response(
             content,
             media_type={"png": "image/png", "svg": "image/svg+xml", "pdf": "application/pdf"}[request.format],
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            headers={"Content-Disposition": content_disposition(filename)},
         )
     except (ValueError, MapDataError) as exc:
         raise HTTPException(status_code=404 if isinstance(exc, MapDataError) else 400, detail=str(exc)) from exc

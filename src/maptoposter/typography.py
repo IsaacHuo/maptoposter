@@ -116,6 +116,19 @@ def safe_slug(value: str, fallback: str = "map-poster") -> str:
     return value[:80] or fallback
 
 
+def safe_ascii_slug(value: str, fallback: str = "map-poster") -> str:
+    """Create an ASCII-only filename slug by dropping non-ASCII characters.
+
+    Used to build the Latin-1-safe ``filename=`` fallback of an HTTP
+    ``Content-Disposition`` header, while ``safe_slug`` keeps the readable
+    Unicode form transported through RFC 5987 ``filename*``.
+    """
+    value = value.replace("_", "-")
+    value = re.sub(r"[^A-Za-z0-9]+", "-", value.strip().lower())
+    value = re.sub(r"-+", "-", value).strip("-_")
+    return value[:80] or fallback
+
+
 def fitted_font_size(text: str, requested: float, max_units: float, minimum: float = 18) -> float:
     """Return a deterministic first-pass title size for a bounded layout region."""
     if not text:

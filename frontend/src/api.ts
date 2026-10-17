@@ -25,6 +25,26 @@ async function expectJson<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>
 }
 
+function decodeRfc5987(value: string): string | null {
+  const match = /^(?:UTF-8|utf-8)''(.+)$/.exec(value.trim().replace(/^"|"$/g, ''))
+  if (!match) return null
+  try {
+    return decodeURIComponent(match[1])
+  } catch {
+    return null
+  }
+}
+
+function parseDownloadFilename(disposition: string, fallback: string): string {
+  const extended = /filename\*\s*=\s*([^;]+)/i.exec(disposition)
+  if (extended) {
+    const decoded = decodeRfc5987(extended[1])
+    if (decoded) return decoded
+  }
+  const basic = /filename\s*=\s*"?([^";]+)"?/i.exec(disposition)
+  return basic?.[1] ?? fallback
+}
+
 export async function getStyles(signal?: AbortSignal): Promise<StylePreset[]> {
   return expectJson(await request(`${API_ROOT}/styles`, { signal }, 'Could not reach the MapToPoster server. Please retry.'))
 }
@@ -63,6 +83,6 @@ export async function exportPoster(mapDataId: string, poster: PosterRequest, for
   }, `The ${format.toUpperCase()} export connection was interrupted. Please retry.`)
   if (!response.ok) throw new Error(await readError(response))
   const disposition = response.headers.get('Content-Disposition') ?? ''
-  const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1] ?? `maptoposter.${format}`
+  const filename = parseDownloadFilename(disposition, `maptoposter.${format}`)
   return { blob: await response.blob(), filename }
 }

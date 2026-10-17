@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from urllib.parse import unquote
 
 from fastapi.testclient import TestClient
 
@@ -52,6 +53,55 @@ def test_prepare_preview_and_export_contract(monkeypatch, tmp_path) -> None:
     )
     assert exported.status_code == 200
     assert "beijing-japanese-ink" in exported.headers["content-disposition"]
+
+
+def test_export_chinese_title_returns_valid_content_disposition(monkeypatch, tmp_path) -> None:
+    key = "c" * 64
+    monkeypatch.setattr(service, "export_poster", lambda reference, config, export: b"%PDF-test")
+
+    payload = poster_payload()
+    payload["typography"] = {**payload["typography"], "title": "北京市"}
+    exported = client.post(
+        "/api/v1/posters/export",
+        json={"map_data_id": key, "poster": payload, "format": "pdf", "dpi": 300},
+    )
+
+    assert exported.status_code == 200
+    assert exported.headers["content-type"] == "application/pdf"
+    assert exported.content
+
+    disposition = exported.headers["content-disposition"]
+    basic = disposition.split("filename=")[1].split(";")[0].strip().strip('"')
+    assert basic, "ASCII fallback filename must be present"
+    assert basic.isascii(), f"fallback filename must be ASCII: {basic!r}"
+    assert "japanese-ink" in basic
+
+    assert "filename*=UTF-8''" in disposition
+    encoded = disposition.split("filename*=UTF-8''", 1)[1]
+    decoded = unquote(encoded)
+    assert decoded.startswith("北京市-japanese-ink-")
+    assert decoded.endswith(".pdf")
+
+
+def test_export_uses_chinese_display_name_when_title_blank(monkeypatch, tmp_path) -> None:
+    key = "d" * 64
+    monkeypatch.setattr(service, "export_poster", lambda reference, config, export: b"\x89PNG\r\n")
+
+    payload = poster_payload()
+    payload["typography"] = {**payload["typography"], "title": ""}
+    payload["location"] = {"display_name": "北京市", "latitude": 39.9042, "longitude": 116.4074, "country": "China"}
+    exported = client.post(
+        "/api/v1/posters/export",
+        json={"map_data_id": key, "poster": payload, "format": "png", "dpi": 300},
+    )
+
+    assert exported.status_code == 200
+    assert exported.headers["content-type"] == "image/png"
+    assert exported.content
+
+    disposition = exported.headers["content-disposition"]
+    encoded = disposition.split("filename*=UTF-8''", 1)[1]
+    assert unquote(encoded).startswith("北京市-japanese-ink-")
 
 
 def test_prepare_keeps_selected_bbox_for_portrait_ratio(monkeypatch, tmp_path) -> None:
