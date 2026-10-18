@@ -29,7 +29,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--country", "-C", default="")
     parser.add_argument("--theme", "-t", default="feature_based", choices=list_themes())
     parser.add_argument("--distance", "-d", type=float, default=10_000)
-    parser.add_argument("--format", "-f", choices=[item.value for item in OutputFormat], default="png")
+    parser.add_argument(
+        "--format",
+        "-f",
+        "--output-format",
+        dest="format",
+        choices=[item.value for item in OutputFormat],
+        default="png",
+    )
     parser.add_argument("--layout", choices=[item.value for item in LayoutPreset], default="classic")
     parser.add_argument("--list-themes", action="store_true")
     parser.add_argument("--output", type=Path)

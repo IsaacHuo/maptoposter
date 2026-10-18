@@ -54,7 +54,7 @@ uv run pytest test_logic.py -k "china_hierarchy or manual_coordinates"
 uv run python verify_data.py
 
 # Create map poster directly (CLI)
-uv run python create_map_poster.py --city "Beijing" --theme japanese_ink --output-format png
+uv run python create_map_poster.py --city "Beijing" --country "China" --theme japanese_ink --output-format png
 ```
 
 ## Code Style Guidelines

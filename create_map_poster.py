@@ -133,8 +133,8 @@ def list_themes():
         print()
 
 
-def main():
-    """Run the command-line poster generator."""
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for the legacy command-line entry point."""
     parser = argparse.ArgumentParser(
         description="Generate beautiful map posters for any city",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -186,11 +186,19 @@ Examples:
     parser.add_argument(
         "--format",
         "-f",
+        "--output-format",
+        dest="format",
         default="png",
         choices=["png", "svg", "pdf"],
         help="Output format for the poster (default: png)",
     )
 
+    return parser
+
+
+def main():
+    """Run the command-line poster generator."""
+    parser = build_parser()
     args = parser.parse_args()
 
     if len(os.sys.argv) == 1:
