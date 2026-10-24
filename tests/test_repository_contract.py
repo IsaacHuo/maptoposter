@@ -48,7 +48,7 @@ def test_main_release_contract() -> None:
     workflow = (ROOT / ".github/workflows/publish-hugging-face.yml").read_text(encoding="utf-8")
     assert "branches: [main]" in workflow
     assert "needs: validate" in workflow
-    assert "huggingface/hub-sync@v0.1.0" in workflow
+    assert "huggingface/hub-sync@v0.3.0" in workflow
     assert "huggingface_repo_id: isaachwf/MapToPoster" in workflow
     assert "hf_token: ${{ secrets.HF_TOKEN }}" in workflow
     assert "space_sdk: docker" in workflow
