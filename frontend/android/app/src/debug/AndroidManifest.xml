@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Debug-only overlay: the app talks to a local FastAPI server over plain HTTP
+      (emulator host 10.0.2.2, or a LAN address). Release builds keep the Android
+      default (cleartext blocked) until the backend is served over HTTPS.
+    -->
+    <application android:usesCleartextTraffic="true" />
+
+</manifest>

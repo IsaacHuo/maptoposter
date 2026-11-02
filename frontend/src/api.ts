@@ -1,8 +1,12 @@
+import { apiRootConfigError, isNativeShell, resolveApiRoot } from './apiRoot'
 import type { LocationResult, PosterRequest, StylePreset } from './types'
 
-const API_ROOT = import.meta.env.VITE_API_URL ?? '/api/v1'
+const API_ROOT = resolveApiRoot(import.meta.env.VITE_API_URL)
+const NATIVE_SHELL = isNativeShell()
 
 async function request(url: string, init: RequestInit | undefined, networkError: string): Promise<Response> {
+  const configError = apiRootConfigError(API_ROOT, NATIVE_SHELL)
+  if (configError) throw new Error(configError)
   try {
     return await fetch(url, init)
   } catch (reason) {
